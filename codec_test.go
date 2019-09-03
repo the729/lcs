@@ -257,3 +257,61 @@ func TestMap(t *testing.T) {
 		},
 	})
 }
+
+type MyStruct1 struct {
+	Boolean bool
+}
+type MyStruct2 struct {
+	Label string
+}
+type Wrapper struct {
+	Name  string
+	Inner interface{} `lcs:"enum:Wrapper.Inner"`
+}
+
+func (*Wrapper) EnumTypes() []EnumVariant {
+	return []EnumVariant{
+		{
+			Name:     "Wrapper.Inner",
+			Value:    5,
+			Template: (*MyStruct1)(nil),
+		},
+		{
+			Name:     "Wrapper.Inner",
+			Value:    6,
+			Template: (*MyStruct2)(nil),
+		},
+	}
+}
+
+func TestEnum(t *testing.T) {
+	runTest(t, []*testCase{
+		{
+			v: &Wrapper{
+				Name:  "1",
+				Inner: &MyStruct1{true},
+			},
+			b:             hexMustDecode("01000000 31 05000000 01"),
+			name:          "ptr to struct with enum 1",
+			skipUnmarshal: true,
+		},
+		{
+			v: &Wrapper{
+				Name:  "2",
+				Inner: &MyStruct2{"hello"},
+			},
+			b:             hexMustDecode("01000000 32 06000000 05000000 68656c6c6f"),
+			name:          "ptr to struct with enum 2",
+			skipUnmarshal: true,
+		},
+		{
+			v: Wrapper{
+				Name:  "2",
+				Inner: &MyStruct2{"hello"},
+			},
+			b:             hexMustDecode("01000000 32 06000000 05000000 68656c6c6f"),
+			name:          "struct with enum",
+			skipUnmarshal: true,
+		},
+	})
+}
