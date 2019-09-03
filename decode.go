@@ -25,7 +25,7 @@ func NewDecoder(r io.Reader) *Decoder {
 }
 
 func (d *Decoder) Decode(v interface{}) error {
-	err := decode(d.r, reflect.Indirect(reflect.ValueOf(v)))
+	err := d.decode(reflect.Indirect(reflect.ValueOf(v)))
 	if err != nil {
 		return err
 	}
@@ -40,14 +40,14 @@ func (d *Decoder) EOF() bool {
 	return false
 }
 
-func decode(r io.Reader, rv reflect.Value) (err error) {
+func (d *Decoder) decode(rv reflect.Value) (err error) {
 	switch rv.Kind() {
 	case reflect.Bool:
 		if !rv.CanSet() {
 			return errors.New("bool value cannot set")
 		}
 		v8 := uint8(0)
-		if err = binary.Read(r, binary.LittleEndian, &v8); err != nil {
+		if err = binary.Read(d.r, binary.LittleEndian, &v8); err != nil {
 			return
 		}
 		if v8 == 1 {
@@ -62,50 +62,50 @@ func decode(r io.Reader, rv reflect.Value) (err error) {
 		if !rv.CanSet() {
 			return errors.New("integer value cannot set")
 		}
-		err = binary.Read(r, binary.LittleEndian, rv.Addr().Interface())
+		err = binary.Read(d.r, binary.LittleEndian, rv.Addr().Interface())
 	case reflect.Slice:
-		err = decodeSlice(r, rv)
+		err = d.decodeSlice(rv)
 	case reflect.Array:
-		err = decodeArray(r, rv)
+		err = d.decodeArray(rv)
 	case reflect.String:
-		err = decodeString(r, rv)
+		err = d.decodeString(rv)
 	case reflect.Struct:
-		err = decodeStruct(r, rv)
+		err = d.decodeStruct(rv)
 	case reflect.Map:
-		err = decodeMap(r, rv)
+		err = d.decodeMap(rv)
 	case reflect.Ptr:
 		if rv.IsNil() {
 			rv.Set(reflect.New(rv.Type().Elem()))
 		}
-		err = decode(r, rv.Elem())
+		err = d.decode(rv.Elem())
 	default:
 		err = errors.New("not supported")
 	}
 	return
 }
 
-func decodeByteSlice(r io.Reader) (b []byte, err error) {
+func (d *Decoder) decodeByteSlice() (b []byte, err error) {
 	l := uint32(0)
-	if err = binary.Read(r, binary.LittleEndian, &l); err != nil {
+	if err = binary.Read(d.r, binary.LittleEndian, &l); err != nil {
 		return
 	}
 	if l > MaxByteSliceSize {
 		return nil, errors.New("byte slice longer than 100MB not supported")
 	}
 	b = make([]byte, l)
-	if _, err = io.ReadFull(r, b); err != nil {
+	if _, err = io.ReadFull(d.r, b); err != nil {
 		return
 	}
 	return
 }
 
-func decodeSlice(r io.Reader, rv reflect.Value) (err error) {
+func (d *Decoder) decodeSlice(rv reflect.Value) (err error) {
 	if !rv.CanSet() {
 		return errors.New("slice cannot set")
 	}
 	if rv.Type() == reflect.TypeOf([]byte{}) {
 		var b []byte
-		if b, err = decodeByteSlice(r); err != nil {
+		if b, err = d.decodeByteSlice(); err != nil {
 			return
 		}
 		rv.SetBytes(b)
@@ -113,7 +113,7 @@ func decodeSlice(r io.Reader, rv reflect.Value) (err error) {
 	}
 
 	l := uint32(0)
-	if err = binary.Read(r, binary.LittleEndian, &l); err != nil {
+	if err = binary.Read(d.r, binary.LittleEndian, &l); err != nil {
 		return
 	}
 	cap := int(l)
@@ -123,7 +123,7 @@ func decodeSlice(r io.Reader, rv reflect.Value) (err error) {
 	s := reflect.MakeSlice(rv.Type(), 0, cap)
 	for i := 0; i < int(l); i++ {
 		v := reflect.New(rv.Type().Elem())
-		if err = decode(r, v); err != nil {
+		if err = d.decode(v); err != nil {
 			return
 		}
 		s = reflect.Append(s, v.Elem())
@@ -132,13 +132,13 @@ func decodeSlice(r io.Reader, rv reflect.Value) (err error) {
 	return
 }
 
-func decodeMap(r io.Reader, rv reflect.Value) (err error) {
+func (d *Decoder) decodeMap(rv reflect.Value) (err error) {
 	if !rv.CanSet() {
 		return errors.New("map cannot set")
 	}
 
 	l := uint32(0)
-	if err = binary.Read(r, binary.LittleEndian, &l); err != nil {
+	if err = binary.Read(d.r, binary.LittleEndian, &l); err != nil {
 		return
 	}
 	cap := int(l)
@@ -149,10 +149,10 @@ func decodeMap(r io.Reader, rv reflect.Value) (err error) {
 	for i := 0; i < int(l); i++ {
 		k := reflect.New(rv.Type().Key())
 		v := reflect.New(rv.Type().Elem())
-		if err = decode(r, k); err != nil {
+		if err = d.decode(k); err != nil {
 			return
 		}
-		if err = decode(r, v); err != nil {
+		if err = d.decode(v); err != nil {
 			return
 		}
 		m.SetMapIndex(k.Elem(), v.Elem())
@@ -161,13 +161,13 @@ func decodeMap(r io.Reader, rv reflect.Value) (err error) {
 	return
 }
 
-func decodeArray(r io.Reader, rv reflect.Value) (err error) {
+func (d *Decoder) decodeArray(rv reflect.Value) (err error) {
 	if !rv.CanSet() {
 		return errors.New("array cannot set")
 	}
 	if rv.Type().Elem() == reflect.TypeOf(byte(0)) {
 		var b []byte
-		if b, err = decodeByteSlice(r); err != nil {
+		if b, err = d.decodeByteSlice(); err != nil {
 			return
 		}
 		if len(b) != rv.Len() {
@@ -178,33 +178,33 @@ func decodeArray(r io.Reader, rv reflect.Value) (err error) {
 	}
 
 	l := uint32(0)
-	if err = binary.Read(r, binary.LittleEndian, &l); err != nil {
+	if err = binary.Read(d.r, binary.LittleEndian, &l); err != nil {
 		return
 	}
 	if int(l) != rv.Len() {
 		return errors.New("length mismatch")
 	}
 	for i := 0; i < int(l); i++ {
-		if err = decode(r, rv.Index(i)); err != nil {
+		if err = d.decode(rv.Index(i)); err != nil {
 			return
 		}
 	}
 	return
 }
 
-func decodeString(r io.Reader, rv reflect.Value) (err error) {
+func (d *Decoder) decodeString(rv reflect.Value) (err error) {
 	if !rv.CanSet() {
 		return errors.New("string cannot set")
 	}
 	var b []byte
-	if b, err = decodeByteSlice(r); err != nil {
+	if b, err = d.decodeByteSlice(); err != nil {
 		return
 	}
 	rv.SetString(string(b))
 	return
 }
 
-func decodeStruct(r io.Reader, rv reflect.Value) (err error) {
+func (d *Decoder) decodeStruct(rv reflect.Value) (err error) {
 	if !rv.CanSet() {
 		return errors.New("struct cannot set")
 	}
@@ -220,7 +220,7 @@ func decodeStruct(r io.Reader, rv reflect.Value) (err error) {
 		if fv.Kind() == reflect.Interface || fv.Kind() == reflect.Ptr {
 			if rt.Field(i).Tag.Get(lcsTagName) == "optional" {
 				rb := reflect.New(reflect.TypeOf(false))
-				if err = decode(r, rb); err != nil {
+				if err = d.decode(rb); err != nil {
 					return
 				}
 				if !rb.Elem().Bool() {
@@ -229,7 +229,7 @@ func decodeStruct(r io.Reader, rv reflect.Value) (err error) {
 				}
 			}
 		}
-		if err = decode(r, fv); err != nil {
+		if err = d.decode(fv); err != nil {
 			return
 		}
 	}
