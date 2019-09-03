@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"sort"
 	"strings"
 )
 
@@ -47,8 +48,10 @@ func (e *Encoder) encode(rv reflect.Value) (err error) {
 		err = e.encodeStruct(rv)
 	case reflect.Map:
 		err = e.encodeMap(rv)
+	case reflect.Ptr:
+		err = e.encode(rv.Elem())
 	default:
-		err = errors.New("not supported")
+		err = errors.New("not supported kind: " + rv.Kind().String())
 	}
 	if err != nil {
 		return err
@@ -96,26 +99,20 @@ func (e *Encoder) encodeStruct(rv reflect.Value) (err error) {
 				return errors.New("enum variants not defined for enum name: " + enumName)
 			}
 			fv = fv.Elem()
-			if fv.Kind() == reflect.Ptr {
-				fv = fv.Elem()
-			}
 			ev, ok := evs[fv.Type()]
 			if !ok {
 				return errors.New("enum variants not defined for type: " + fv.Elem().Type().String())
 			}
 			if err = binary.Write(e.w, binary.LittleEndian, ev); err != nil {
+				return
+			}
+		} else if fv.Kind() == reflect.Ptr && tag == "optional" {
+			if err = e.encode(reflect.ValueOf(!fv.IsNil())); err != nil {
 				return err
 			}
-		} else if fv.Kind() == reflect.Interface || fv.Kind() == reflect.Ptr {
-			if tag == "optional" {
-				if err = e.encode(reflect.ValueOf(!fv.IsNil())); err != nil {
-					return err
-				}
-				if fv.IsNil() {
-					continue
-				}
+			if fv.IsNil() {
+				continue
 			}
-			fv = fv.Elem()
 		}
 		if err = e.encode(fv); err != nil {
 			return err
@@ -129,16 +126,30 @@ func (e *Encoder) encodeMap(rv reflect.Value) (err error) {
 	if err != nil {
 		return err
 	}
+
+	keys := make([]string, 0, rv.Len())
+	marshaledMap := make(map[string][]byte)
 	for iter := rv.MapRange(); iter.Next(); {
 		k := iter.Key()
 		v := iter.Value()
-		if err = e.encode(k); err != nil {
+		kb, err := Marshal(k.Interface())
+		if err != nil {
 			return err
 		}
-		if err = e.encode(v); err != nil {
+		vb, err := Marshal(v.Interface())
+		if err != nil {
 			return err
 		}
+		keys = append(keys, string(kb))
+		marshaledMap[string(kb)] = vb
 	}
+
+	sort.Strings(keys)
+	for _, k := range keys {
+		e.w.Write([]byte(k))
+		e.w.Write(marshaledMap[k])
+	}
+
 	return nil
 }
 
@@ -154,9 +165,6 @@ func (e *Encoder) getEnumVariants(rv reflect.Value) map[string]map[reflect.Type]
 	evs := vv.EnumTypes()
 	for _, ev := range evs {
 		evt := reflect.TypeOf(ev.Template)
-		if evt.Kind() == reflect.Ptr {
-			evt = evt.Elem()
-		}
 		if r[ev.Name] == nil {
 			r[ev.Name] = make(map[reflect.Type]int32)
 		}

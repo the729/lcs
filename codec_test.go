@@ -160,6 +160,21 @@ func TestBasicSlice(t *testing.T) {
 	})
 }
 
+func Test2DSlice(t *testing.T) {
+	runTest(t, []*testCase{
+		{
+			v:    [][]byte{{0x01, 0x02}, {0x11, 0x12, 0x13}, {0x21}},
+			b:    hexMustDecode("03000000 02000000 0102 03000000 111213 01000000 21"),
+			name: "2d byte slice",
+		},
+		{
+			v:    []string{"hello", "world"},
+			b:    hexMustDecode("02000000 05000000 68656c6c6f 05000000 776f726c64"),
+			name: "string slice",
+		},
+	})
+}
+
 func TestBasicStruct(t *testing.T) {
 	type MyStruct struct {
 		Boolean    bool
@@ -264,6 +279,7 @@ type Option0 struct {
 type Option1 struct {
 	Data uint64
 }
+type Option2 bool
 type isOption interface {
 	isOption()
 }
@@ -273,6 +289,7 @@ type Option struct {
 
 func (*Option0) isOption() {}
 func (*Option1) isOption() {}
+func (Option2) isOption()  {}
 func (*Option) EnumTypes() []EnumVariant {
 	return []EnumVariant{
 		{
@@ -285,6 +302,11 @@ func (*Option) EnumTypes() []EnumVariant {
 			Value:    1,
 			Template: (*Option1)(nil),
 		},
+		{
+			Name:     "option",
+			Value:    2,
+			Template: Option2(false),
+		},
 	}
 }
 
@@ -295,21 +317,28 @@ func TestEnum(t *testing.T) {
 				Option: &Option0{5},
 			},
 			b:    hexMustDecode("0000 0000 0500 0000"),
-			name: "ptr to struct with enum 1",
+			name: "ptr to struct with ptr interface 0",
 		},
 		{
 			v: &Option{
 				Option: &Option1{6},
 			},
 			b:    hexMustDecode("0100 0000 0600 0000 0000 0000"),
-			name: "ptr to struct with enum 2",
+			name: "ptr to struct with ptr interface 1",
+		},
+		{
+			v: &Option{
+				Option: Option2(true),
+			},
+			b:    hexMustDecode("0200 0000 01"),
+			name: "ptr to struct with real value as interface",
 		},
 		{
 			v: Option{
 				Option: &Option1{6},
 			},
 			b:    hexMustDecode("0100 0000 0600 0000 0000 0000"),
-			name: "struct with enum",
+			name: "struct with enum with real struct interface",
 		},
 	})
 }

@@ -81,7 +81,7 @@ func (d *Decoder) decode(rv reflect.Value) (err error) {
 		}
 		err = d.decode(rv.Elem())
 	default:
-		err = errors.New("not supported")
+		err = errors.New("not supported kind: " + rv.Kind().String())
 	}
 	return
 }
@@ -243,22 +243,29 @@ func (d *Decoder) decodeStruct(rv reflect.Value) (err error) {
 			if !ok {
 				return errors.New("enum variants not defined for value")
 			}
-			fv1 := reflect.New(tpl)
-			if err = d.decode(fv1); err != nil {
-				return
-			}
-			fv.Set(fv1)
-			continue
-		} else if fv.Kind() == reflect.Interface || fv.Kind() == reflect.Ptr {
-			if tag == "optional" {
-				rb := reflect.New(reflect.TypeOf(false))
-				if err = d.decode(rb); err != nil {
+			if tpl.Kind() == reflect.Ptr {
+				fv1 := reflect.New(tpl.Elem())
+				if err = d.decode(fv1); err != nil {
 					return
 				}
-				if !rb.Elem().Bool() {
-					fv.Set(reflect.Zero(fv.Type()))
-					continue
+				fv.Set(fv1)
+			} else {
+				fv1 := reflect.New(tpl)
+				if err = d.decode(fv1); err != nil {
+					return
 				}
+				fv.Set(fv1.Elem())
+			}
+			continue
+		}
+		if fv.Kind() == reflect.Ptr && tag == "optional" {
+			rb := reflect.New(reflect.TypeOf(false))
+			if err = d.decode(rb); err != nil {
+				return
+			}
+			if !rb.Elem().Bool() {
+				fv.Set(reflect.Zero(fv.Type()))
+				continue
 			}
 		}
 		if err = d.decode(fv); err != nil {
@@ -280,9 +287,6 @@ func (d *Decoder) getEnumVariants(rv reflect.Value) map[string]map[int32]reflect
 	evs := vv.EnumTypes()
 	for _, ev := range evs {
 		evt := reflect.TypeOf(ev.Template)
-		if evt.Kind() == reflect.Ptr {
-			evt = evt.Elem()
-		}
 		if r[ev.Name] == nil {
 			r[ev.Name] = make(map[int32]reflect.Type)
 		}
