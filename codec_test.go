@@ -258,33 +258,32 @@ func TestMap(t *testing.T) {
 	})
 }
 
-type MyStruct1 struct {
-	Boolean bool
+type Option0 struct {
+	Data uint32
 }
-type MyStruct2 struct {
-	Label string
+type Option1 struct {
+	Data uint64
 }
-type isInner interface {
-	dummy()
+type isOption interface {
+	isOption()
 }
-type Wrapper struct {
-	Name  string
-	Inner isInner `lcs:"enum:Wrapper.Inner"`
+type Option struct {
+	Option isOption `lcs:"enum:option"`
 }
 
-func (*MyStruct1) dummy() {}
-func (*MyStruct2) dummy() {}
-func (*Wrapper) EnumTypes() []EnumVariant {
+func (*Option0) isOption() {}
+func (*Option1) isOption() {}
+func (*Option) EnumTypes() []EnumVariant {
 	return []EnumVariant{
 		{
-			Name:     "Wrapper.Inner",
-			Value:    5,
-			Template: (*MyStruct1)(nil),
+			Name:     "option",
+			Value:    0,
+			Template: (*Option0)(nil),
 		},
 		{
-			Name:     "Wrapper.Inner",
-			Value:    6,
-			Template: (*MyStruct2)(nil),
+			Name:     "option",
+			Value:    1,
+			Template: (*Option1)(nil),
 		},
 	}
 }
@@ -292,27 +291,24 @@ func (*Wrapper) EnumTypes() []EnumVariant {
 func TestEnum(t *testing.T) {
 	runTest(t, []*testCase{
 		{
-			v: &Wrapper{
-				Name:  "1",
-				Inner: &MyStruct1{true},
+			v: &Option{
+				Option: &Option0{5},
 			},
-			b:    hexMustDecode("01000000 31 05000000 01"),
+			b:    hexMustDecode("0000 0000 0500 0000"),
 			name: "ptr to struct with enum 1",
 		},
 		{
-			v: &Wrapper{
-				Name:  "2",
-				Inner: &MyStruct2{"hello"},
+			v: &Option{
+				Option: &Option1{6},
 			},
-			b:    hexMustDecode("01000000 32 06000000 05000000 68656c6c6f"),
+			b:    hexMustDecode("0100 0000 0600 0000 0000 0000"),
 			name: "ptr to struct with enum 2",
 		},
 		{
-			v: Wrapper{
-				Name:  "2",
-				Inner: &MyStruct2{"hello"},
+			v: Option{
+				Option: &Option1{6},
 			},
-			b:    hexMustDecode("01000000 32 06000000 05000000 68656c6c6f"),
+			b:    hexMustDecode("0100 0000 0600 0000 0000 0000"),
 			name: "struct with enum",
 		},
 	})
