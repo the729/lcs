@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"strings"
 )
 
 const (
@@ -14,13 +15,14 @@ const (
 )
 
 type Decoder struct {
-	//d []byte
-	r io.Reader
+	r     io.Reader
+	enums map[reflect.Type]map[string]map[int32]reflect.Type
 }
 
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{
-		r: r,
+		r:     r,
+		enums: make(map[reflect.Type]map[string]map[int32]reflect.Type),
 	}
 }
 
@@ -217,8 +219,38 @@ func (d *Decoder) decodeStruct(rv reflect.Value) (err error) {
 		if rt.Field(i).Tag.Get(lcsTagName) == "-" {
 			continue
 		}
-		if fv.Kind() == reflect.Interface || fv.Kind() == reflect.Ptr {
-			if rt.Field(i).Tag.Get(lcsTagName) == "optional" {
+		tag := rt.Field(i).Tag.Get(lcsTagName)
+		if fv.Kind() == reflect.Interface && strings.HasPrefix(tag, "enum:") {
+			typeVal := int32(0)
+			if err = binary.Read(d.r, binary.LittleEndian, &typeVal); err != nil {
+				return
+			}
+			enumName := tag[5:]
+			evsAll, ok := d.enums[rv.Type()]
+			if !ok {
+				if evsAll = d.getEnumVariants(rv); evsAll != nil {
+					d.enums[rv.Type()] = evsAll
+				}
+			}
+			if evsAll == nil {
+				return errors.New("enum variants not defined")
+			}
+			evs, ok := evsAll[enumName]
+			if !ok {
+				return errors.New("enum variants not defined for enum name: " + enumName)
+			}
+			tpl, ok := evs[typeVal]
+			if !ok {
+				return errors.New("enum variants not defined for value")
+			}
+			fv1 := reflect.New(tpl)
+			if err = d.decode(fv1); err != nil {
+				return
+			}
+			fv.Set(fv1)
+			continue
+		} else if fv.Kind() == reflect.Interface || fv.Kind() == reflect.Ptr {
+			if tag == "optional" {
 				rb := reflect.New(reflect.TypeOf(false))
 				if err = d.decode(rb); err != nil {
 					return
@@ -234,6 +266,29 @@ func (d *Decoder) decodeStruct(rv reflect.Value) (err error) {
 		}
 	}
 	return
+}
+
+func (d *Decoder) getEnumVariants(rv reflect.Value) map[string]map[int32]reflect.Type {
+	vv, ok := rv.Interface().(EnumTypeUser)
+	if !ok {
+		vv, ok = reflect.New(reflect.PtrTo(rv.Type())).Elem().Interface().(EnumTypeUser)
+		if !ok {
+			return nil
+		}
+	}
+	r := make(map[string]map[int32]reflect.Type)
+	evs := vv.EnumTypes()
+	for _, ev := range evs {
+		evt := reflect.TypeOf(ev.Template)
+		if evt.Kind() == reflect.Ptr {
+			evt = evt.Elem()
+		}
+		if r[ev.Name] == nil {
+			r[ev.Name] = make(map[int32]reflect.Type)
+		}
+		r[ev.Name][ev.Value] = evt
+	}
+	return r
 }
 
 func Unmarshal(data []byte, v interface{}) error {

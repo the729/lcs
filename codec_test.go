@@ -264,11 +264,16 @@ type MyStruct1 struct {
 type MyStruct2 struct {
 	Label string
 }
+type isInner interface {
+	dummy()
+}
 type Wrapper struct {
 	Name  string
-	Inner interface{} `lcs:"enum:Wrapper.Inner"`
+	Inner isInner `lcs:"enum:Wrapper.Inner"`
 }
 
+func (*MyStruct1) dummy() {}
+func (*MyStruct2) dummy() {}
 func (*Wrapper) EnumTypes() []EnumVariant {
 	return []EnumVariant{
 		{
@@ -291,27 +296,24 @@ func TestEnum(t *testing.T) {
 				Name:  "1",
 				Inner: &MyStruct1{true},
 			},
-			b:             hexMustDecode("01000000 31 05000000 01"),
-			name:          "ptr to struct with enum 1",
-			skipUnmarshal: true,
+			b:    hexMustDecode("01000000 31 05000000 01"),
+			name: "ptr to struct with enum 1",
 		},
 		{
 			v: &Wrapper{
 				Name:  "2",
 				Inner: &MyStruct2{"hello"},
 			},
-			b:             hexMustDecode("01000000 32 06000000 05000000 68656c6c6f"),
-			name:          "ptr to struct with enum 2",
-			skipUnmarshal: true,
+			b:    hexMustDecode("01000000 32 06000000 05000000 68656c6c6f"),
+			name: "ptr to struct with enum 2",
 		},
 		{
 			v: Wrapper{
 				Name:  "2",
 				Inner: &MyStruct2{"hello"},
 			},
-			b:             hexMustDecode("01000000 32 06000000 05000000 68656c6c6f"),
-			name:          "struct with enum",
-			skipUnmarshal: true,
+			b:    hexMustDecode("01000000 32 06000000 05000000 68656c6c6f"),
+			name: "struct with enum",
 		},
 	})
 }

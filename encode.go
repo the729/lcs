@@ -107,7 +107,7 @@ func (e *Encoder) encodeStruct(rv reflect.Value) (err error) {
 				return err
 			}
 		} else if fv.Kind() == reflect.Interface || fv.Kind() == reflect.Ptr {
-			if rt.Field(i).Tag.Get(lcsTagName) == "optional" {
+			if tag == "optional" {
 				if err = e.encode(reflect.ValueOf(!fv.IsNil())); err != nil {
 					return err
 				}
