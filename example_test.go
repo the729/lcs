@@ -7,7 +7,7 @@ import (
 	"github.com/the729/lcs"
 )
 
-func ExampleMarshalStruct() {
+func Example_MarshalStruct() {
 	type MyStruct struct {
 		Boolean    bool
 		Bytes      []byte
@@ -34,7 +34,7 @@ func ExampleMarshalStruct() {
 	// Output: 010004000000010203040500000068656c6c6f0400000074657374
 }
 
-func ExampleUnmarshalStruct() {
+func Example_UnmarshalStruct() {
 	type MyStruct struct {
 		Boolean    bool
 		Bytes      []byte
@@ -82,7 +82,7 @@ func (*Program) EnumTypes() []lcs.EnumVariant {
 	}
 }
 
-func ExampleUnmarshalProgram() {
+func Example_UnmarshalProgram() {
 	bytes, _ := hex.DecodeString("040000006D6F766502000000020000000900000043414645204430304402000000090000006361666520643030640300000001000000CA02000000FED0010000000D")
 	out := &Program{}
 	err := lcs.Unmarshal(bytes, out)

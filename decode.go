@@ -9,11 +9,6 @@ import (
 	"strings"
 )
 
-const (
-	MaxByteSliceSize    = 100 * 1024 * 1024
-	SliceAndMapInitSize = 100
-)
-
 type Decoder struct {
 	r     io.Reader
 	enums map[reflect.Type]map[string]map[int32]reflect.Type
@@ -93,7 +88,7 @@ func (d *Decoder) decodeByteSlice() (b []byte, err error) {
 	if err = binary.Read(d.r, binary.LittleEndian, &l); err != nil {
 		return
 	}
-	if l > MaxByteSliceSize {
+	if l > maxByteSliceSize {
 		return nil, errors.New("byte slice longer than 100MB not supported")
 	}
 	b = make([]byte, l)
@@ -121,8 +116,8 @@ func (d *Decoder) decodeSlice(rv reflect.Value, enumVariants map[int32]reflect.T
 		return
 	}
 	cap := int(l)
-	if cap > SliceAndMapInitSize {
-		cap = SliceAndMapInitSize
+	if cap > sliceAndMapInitSize {
+		cap = sliceAndMapInitSize
 	}
 	s := reflect.MakeSlice(rv.Type(), 0, cap)
 	for i := 0; i < int(l); i++ {
@@ -146,8 +141,8 @@ func (d *Decoder) decodeMap(rv reflect.Value) (err error) {
 		return
 	}
 	cap := int(l)
-	if cap > SliceAndMapInitSize {
-		cap = SliceAndMapInitSize
+	if cap > sliceAndMapInitSize {
+		cap = sliceAndMapInitSize
 	}
 	m := reflect.MakeMapWithSize(rv.Type(), cap)
 	for i := 0; i < int(l); i++ {

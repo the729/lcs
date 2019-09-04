@@ -11,10 +11,6 @@ import (
 	"strings"
 )
 
-const (
-	lcsTagName = "lcs"
-)
-
 type Encoder struct {
 	w     *bufio.Writer
 	enums map[reflect.Type]map[string]map[reflect.Type]int32
