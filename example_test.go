@@ -7,7 +7,7 @@ import (
 	"github.com/the729/lcs"
 )
 
-func Example_MarshalStruct() {
+func ExampleMarshal_struct() {
 	type MyStruct struct {
 		Boolean    bool
 		Bytes      []byte
@@ -34,7 +34,7 @@ func Example_MarshalStruct() {
 	// Output: 010004000000010203040500000068656c6c6f0400000074657374
 }
 
-func Example_UnmarshalStruct() {
+func ExampleUnmarshal_struct() {
 	type MyStruct struct {
 		Boolean    bool
 		Bytes      []byte
@@ -82,7 +82,27 @@ func (*Program) EnumTypes() []lcs.EnumVariant {
 	}
 }
 
-func Example_UnmarshalProgram() {
+func ExampleMarshal_libra_program() {
+	prog := &Program{
+		Code: []byte("move"),
+		Args: []TransactionArgument{
+			TxnArgString("CAFE D00D"),
+			TxnArgString("cafe d00d"),
+		},
+		Modules: [][]byte{{0xca}, {0xfe, 0xd0}, {0x0d}},
+	}
+
+	bytes, err := lcs.Marshal(prog)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%X\n", bytes)
+	// Output:
+	// 040000006D6F766502000000020000000900000043414645204430304402000000090000006361666520643030640300000001000000CA02000000FED0010000000D
+}
+
+func ExampleUnmarshal_libra_program() {
 	bytes, _ := hex.DecodeString("040000006D6F766502000000020000000900000043414645204430304402000000090000006361666520643030640300000001000000CA02000000FED0010000000D")
 	out := &Program{}
 	err := lcs.Unmarshal(bytes, out)
