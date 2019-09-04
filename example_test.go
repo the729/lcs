@@ -57,7 +57,7 @@ func ExampleUnmarshalStruct() {
 	// Output: Name: test, Label: hello
 }
 
-type isTransactionArgument interface {
+type TransactionArgument interface {
 	isTransactionArg()
 }
 type TxnArgU64 uint64
@@ -68,22 +68,18 @@ func (TxnArgU64) isTransactionArg()     {}
 func (TxnArgAddress) isTransactionArg() {}
 func (TxnArgString) isTransactionArg()  {}
 
-type TransactionArgument struct {
-	Arg isTransactionArgument `lcs:"enum:txn_arg"`
+type Program struct {
+	Code    []byte
+	Args    []TransactionArgument `lcs:"enum:txn_arg"`
+	Modules [][]byte
 }
 
-func (*TransactionArgument) EnumTypes() []lcs.EnumVariant {
+func (*Program) EnumTypes() []lcs.EnumVariant {
 	return []lcs.EnumVariant{
 		{"txn_arg", 0, TxnArgU64(0)},
 		{"txn_arg", 1, TxnArgAddress([32]byte{})},
 		{"txn_arg", 2, TxnArgString("")},
 	}
-}
-
-type Program struct {
-	Code    []byte
-	Args    []TransactionArgument
-	Modules [][]byte
 }
 
 func ExampleUnmarshalProgram() {
@@ -94,6 +90,7 @@ func ExampleUnmarshalProgram() {
 		panic(err)
 	}
 
-	fmt.Printf("%+v", out)
-	// Output: &{Code:[109 111 118 101] Args:[{Arg:CAFE D00D} {Arg:cafe d00d}] Modules:[[202] [254 208] [13]]}
+	fmt.Printf("%+v\n", out)
+	// Output:
+	// &{Code:[109 111 118 101] Args:[CAFE D00D cafe d00d] Modules:[[202] [254 208] [13]]}
 }

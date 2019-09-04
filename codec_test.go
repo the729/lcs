@@ -342,3 +342,87 @@ func TestEnum(t *testing.T) {
 		},
 	})
 }
+
+type Wrapper struct {
+	Option []isOption `lcs:"enum:option"`
+}
+
+func (*Wrapper) EnumTypes() []EnumVariant {
+	return []EnumVariant{
+		{
+			Name:     "option",
+			Value:    0,
+			Template: (*Option0)(nil),
+		},
+		{
+			Name:     "option",
+			Value:    1,
+			Template: (*Option1)(nil),
+		},
+		{
+			Name:     "option",
+			Value:    2,
+			Template: Option2(false),
+		},
+	}
+}
+
+func TestEnumSlice(t *testing.T) {
+	runTest(t, []*testCase{
+		{
+			v: &Wrapper{
+				Option: []isOption{
+					&Option0{5},
+					&Option1{6},
+					Option2(true),
+				},
+			},
+			b:    hexMustDecode("03000000 00000000 05000000 01000000 0600000000000000 02000000 01"),
+			name: "enum slice",
+		},
+	})
+}
+
+type Wrapper2 struct {
+	Option [][]isOption `lcs:"enum:option"`
+}
+
+func (*Wrapper2) EnumTypes() []EnumVariant {
+	return []EnumVariant{
+		{
+			Name:     "option",
+			Value:    0,
+			Template: (*Option0)(nil),
+		},
+		{
+			Name:     "option",
+			Value:    1,
+			Template: (*Option1)(nil),
+		},
+		{
+			Name:     "option",
+			Value:    2,
+			Template: Option2(false),
+		},
+	}
+}
+
+func TestEnum2DSlice(t *testing.T) {
+	runTest(t, []*testCase{
+		{
+			v: &Wrapper2{
+				Option: [][]isOption{
+					{
+						&Option0{5},
+						Option2(true),
+					},
+					{
+						Option2(false),
+					},
+				},
+			},
+			b:    hexMustDecode("02000000 02000000 00000000 05000000 02000000 01 01000000 02000000 00"),
+			name: "2D enum slice",
+		},
+	})
+}

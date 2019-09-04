@@ -27,7 +27,7 @@ func NewDecoder(r io.Reader) *Decoder {
 }
 
 func (d *Decoder) Decode(v interface{}) error {
-	err := d.decode(reflect.Indirect(reflect.ValueOf(v)))
+	err := d.decode(reflect.Indirect(reflect.ValueOf(v)), nil)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func (d *Decoder) EOF() bool {
 	return false
 }
 
-func (d *Decoder) decode(rv reflect.Value) (err error) {
+func (d *Decoder) decode(rv reflect.Value, enumVariants map[int32]reflect.Type) (err error) {
 	switch rv.Kind() {
 	case reflect.Bool:
 		if !rv.CanSet() {
@@ -66,9 +66,9 @@ func (d *Decoder) decode(rv reflect.Value) (err error) {
 		}
 		err = binary.Read(d.r, binary.LittleEndian, rv.Addr().Interface())
 	case reflect.Slice:
-		err = d.decodeSlice(rv)
+		err = d.decodeSlice(rv, enumVariants)
 	case reflect.Array:
-		err = d.decodeArray(rv)
+		err = d.decodeArray(rv, enumVariants)
 	case reflect.String:
 		err = d.decodeString(rv)
 	case reflect.Struct:
@@ -79,7 +79,9 @@ func (d *Decoder) decode(rv reflect.Value) (err error) {
 		if rv.IsNil() {
 			rv.Set(reflect.New(rv.Type().Elem()))
 		}
-		err = d.decode(rv.Elem())
+		err = d.decode(rv.Elem(), enumVariants)
+	case reflect.Interface:
+		err = d.decodeInterface(rv, enumVariants)
 	default:
 		err = errors.New("not supported kind: " + rv.Kind().String())
 	}
@@ -101,7 +103,7 @@ func (d *Decoder) decodeByteSlice() (b []byte, err error) {
 	return
 }
 
-func (d *Decoder) decodeSlice(rv reflect.Value) (err error) {
+func (d *Decoder) decodeSlice(rv reflect.Value, enumVariants map[int32]reflect.Type) (err error) {
 	if !rv.CanSet() {
 		return errors.New("slice cannot set")
 	}
@@ -125,7 +127,7 @@ func (d *Decoder) decodeSlice(rv reflect.Value) (err error) {
 	s := reflect.MakeSlice(rv.Type(), 0, cap)
 	for i := 0; i < int(l); i++ {
 		v := reflect.New(rv.Type().Elem())
-		if err = d.decode(v); err != nil {
+		if err = d.decode(v.Elem(), enumVariants); err != nil {
 			return
 		}
 		s = reflect.Append(s, v.Elem())
@@ -151,10 +153,10 @@ func (d *Decoder) decodeMap(rv reflect.Value) (err error) {
 	for i := 0; i < int(l); i++ {
 		k := reflect.New(rv.Type().Key())
 		v := reflect.New(rv.Type().Elem())
-		if err = d.decode(k); err != nil {
+		if err = d.decode(k, nil); err != nil {
 			return
 		}
-		if err = d.decode(v); err != nil {
+		if err = d.decode(v, nil); err != nil {
 			return
 		}
 		m.SetMapIndex(k.Elem(), v.Elem())
@@ -163,7 +165,7 @@ func (d *Decoder) decodeMap(rv reflect.Value) (err error) {
 	return
 }
 
-func (d *Decoder) decodeArray(rv reflect.Value) (err error) {
+func (d *Decoder) decodeArray(rv reflect.Value, enumVariants map[int32]reflect.Type) (err error) {
 	if !rv.CanSet() {
 		return errors.New("array cannot set")
 	}
@@ -187,7 +189,7 @@ func (d *Decoder) decodeArray(rv reflect.Value) (err error) {
 		return errors.New("length mismatch")
 	}
 	for i := 0; i < int(l); i++ {
-		if err = d.decode(rv.Index(i)); err != nil {
+		if err = d.decode(rv.Index(i), enumVariants); err != nil {
 			return
 		}
 	}
@@ -206,6 +208,34 @@ func (d *Decoder) decodeString(rv reflect.Value) (err error) {
 	return
 }
 
+func (d *Decoder) decodeInterface(rv reflect.Value, enumVariants map[int32]reflect.Type) (err error) {
+	if enumVariants == nil {
+		return errors.New("enum variants not defined for interface: " + rv.Type().String())
+	}
+	typeVal := int32(0)
+	if err = binary.Read(d.r, binary.LittleEndian, &typeVal); err != nil {
+		return
+	}
+	tpl, ok := enumVariants[typeVal]
+	if !ok {
+		return errors.New("enum variants not defined for value")
+	}
+	if tpl.Kind() == reflect.Ptr {
+		rv1 := reflect.New(tpl.Elem())
+		if err = d.decode(rv1, nil); err != nil {
+			return
+		}
+		rv.Set(rv1)
+	} else {
+		rv1 := reflect.New(tpl)
+		if err = d.decode(rv1, nil); err != nil {
+			return
+		}
+		rv.Set(rv1.Elem())
+	}
+	return nil
+}
+
 func (d *Decoder) decodeStruct(rv reflect.Value) (err error) {
 	if !rv.CanSet() {
 		return errors.New("struct cannot set")
@@ -220,11 +250,8 @@ func (d *Decoder) decodeStruct(rv reflect.Value) (err error) {
 			continue
 		}
 		tag := rt.Field(i).Tag.Get(lcsTagName)
-		if fv.Kind() == reflect.Interface && strings.HasPrefix(tag, "enum:") {
-			typeVal := int32(0)
-			if err = binary.Read(d.r, binary.LittleEndian, &typeVal); err != nil {
-				return
-			}
+		var evs map[int32]reflect.Type
+		if strings.HasPrefix(tag, "enum:") {
 			enumName := tag[5:]
 			evsAll, ok := d.enums[rv.Type()]
 			if !ok {
@@ -235,32 +262,15 @@ func (d *Decoder) decodeStruct(rv reflect.Value) (err error) {
 			if evsAll == nil {
 				return errors.New("enum variants not defined")
 			}
-			evs, ok := evsAll[enumName]
+			evs, ok = evsAll[enumName]
 			if !ok {
 				return errors.New("enum variants not defined for enum name: " + enumName)
 			}
-			tpl, ok := evs[typeVal]
-			if !ok {
-				return errors.New("enum variants not defined for value")
-			}
-			if tpl.Kind() == reflect.Ptr {
-				fv1 := reflect.New(tpl.Elem())
-				if err = d.decode(fv1); err != nil {
-					return
-				}
-				fv.Set(fv1)
-			} else {
-				fv1 := reflect.New(tpl)
-				if err = d.decode(fv1); err != nil {
-					return
-				}
-				fv.Set(fv1.Elem())
-			}
-			continue
 		}
+
 		if fv.Kind() == reflect.Ptr && tag == "optional" {
 			rb := reflect.New(reflect.TypeOf(false))
-			if err = d.decode(rb); err != nil {
+			if err = d.decode(rb, nil); err != nil {
 				return
 			}
 			if !rb.Elem().Bool() {
@@ -268,7 +278,7 @@ func (d *Decoder) decodeStruct(rv reflect.Value) (err error) {
 				continue
 			}
 		}
-		if err = d.decode(fv); err != nil {
+		if err = d.decode(fv, evs); err != nil {
 			return
 		}
 	}

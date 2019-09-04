@@ -28,14 +28,14 @@ func NewEncoder(w io.Writer) *Encoder {
 }
 
 func (e *Encoder) Encode(v interface{}) error {
-	if err := e.encode(reflect.Indirect(reflect.ValueOf(v))); err != nil {
+	if err := e.encode(reflect.Indirect(reflect.ValueOf(v)), nil); err != nil {
 		return err
 	}
 	e.w.Flush()
 	return nil
 }
 
-func (e *Encoder) encode(rv reflect.Value) (err error) {
+func (e *Encoder) encode(rv reflect.Value, enumVariants map[reflect.Type]int32) (err error) {
 	// rv = indirect(rv)
 	switch rv.Kind() {
 	case reflect.Bool,
@@ -43,13 +43,15 @@ func (e *Encoder) encode(rv reflect.Value) (err error) {
 		/*reflect.Uint,*/ reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		err = binary.Write(e.w, binary.LittleEndian, rv.Interface())
 	case reflect.Slice, reflect.Array, reflect.String:
-		err = e.encodeSlice(rv)
+		err = e.encodeSlice(rv, enumVariants)
 	case reflect.Struct:
 		err = e.encodeStruct(rv)
 	case reflect.Map:
 		err = e.encodeMap(rv)
 	case reflect.Ptr:
-		err = e.encode(rv.Elem())
+		err = e.encode(rv.Elem(), enumVariants)
+	case reflect.Interface:
+		err = e.encodeInterface(rv, enumVariants)
 	default:
 		err = errors.New("not supported kind: " + rv.Kind().String())
 	}
@@ -59,15 +61,33 @@ func (e *Encoder) encode(rv reflect.Value) (err error) {
 	return nil
 }
 
-func (e *Encoder) encodeSlice(rv reflect.Value) (err error) {
+func (e *Encoder) encodeSlice(rv reflect.Value, enumVariants map[reflect.Type]int32) (err error) {
 	if err = binary.Write(e.w, binary.LittleEndian, uint32(rv.Len())); err != nil {
 		return err
 	}
 	for i := 0; i < rv.Len(); i++ {
 		item := rv.Index(i)
-		if err = e.encode(item); err != nil {
+		if err = e.encode(item, enumVariants); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (e *Encoder) encodeInterface(rv reflect.Value, enumVariants map[reflect.Type]int32) (err error) {
+	if enumVariants == nil {
+		return errors.New("enum variants not defined for interface: " + rv.Type().String())
+	}
+	rv = rv.Elem()
+	ev, ok := enumVariants[rv.Type()]
+	if !ok {
+		return errors.New("enum variants not defined for type: " + rv.Type().String())
+	}
+	if err = binary.Write(e.w, binary.LittleEndian, ev); err != nil {
+		return
+	}
+	if err = e.encode(rv, nil); err != nil {
+		return err
 	}
 	return nil
 }
@@ -83,7 +103,9 @@ func (e *Encoder) encodeStruct(rv reflect.Value) (err error) {
 			continue
 		}
 		tag := rt.Field(i).Tag.Get(lcsTagName)
-		if fv.Kind() == reflect.Interface && strings.HasPrefix(tag, "enum:") {
+
+		var evs map[reflect.Type]int32
+		if strings.HasPrefix(tag, "enum:") {
 			enumName := tag[5:]
 			evsAll, ok := e.enums[rv.Type()]
 			if !ok {
@@ -94,28 +116,22 @@ func (e *Encoder) encodeStruct(rv reflect.Value) (err error) {
 			if evsAll == nil {
 				return errors.New("enum variants not defined")
 			}
-			evs, ok := evsAll[enumName]
+			evs, ok = evsAll[enumName]
 			if !ok {
 				return errors.New("enum variants not defined for enum name: " + enumName)
 			}
-			fv = fv.Elem()
-			ev, ok := evs[fv.Type()]
-			if !ok {
-				return errors.New("enum variants not defined for type: " + fv.Elem().Type().String())
-			}
-			if err = binary.Write(e.w, binary.LittleEndian, ev); err != nil {
-				return
-			}
-		} else if fv.Kind() == reflect.Ptr && tag == "optional" {
-			if err = e.encode(reflect.ValueOf(!fv.IsNil())); err != nil {
+		}
+
+		if fv.Kind() == reflect.Ptr && tag == "optional" {
+			if err = e.encode(reflect.ValueOf(!fv.IsNil()), nil); err != nil {
 				return err
 			}
 			if fv.IsNil() {
 				continue
 			}
 		}
-		if err = e.encode(fv); err != nil {
-			return err
+		if err = e.encode(fv, evs); err != nil {
+			return
 		}
 	}
 	return nil
