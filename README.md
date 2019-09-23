@@ -84,7 +84,7 @@ Enum types are defined using interfaces.
 Enum types can only be struct fields, with "enum" tags. Stand-alone enum types are not supported.
 
 ```golang
-// isOption is an enum type. It has a dummy function to distinguish its variants.
+// isOption is an enum type. It has a dummy function to identify its variants.
 type isOption interface {
 	isOption()
 }
@@ -98,6 +98,7 @@ type Option1 struct {
 	Data uint64
 }
 type Option2 bool
+// Variants should implement isOption
 func (*Option0) isOption() {}
 func (*Option1) isOption() {}
 func (Option2) isOption()  {}
@@ -105,8 +106,8 @@ func (Option2) isOption()  {}
 // MyStruct contains the enum type Option
 type MyStruct struct {
     Name   string
-    Option isOption     `lcs:"enum:option"` // tag in "enum:name" format
-    List2D [][]isOption `lcs:"enum:option"` // support multi-dim slices
+    Option isOption     `lcs:"enum:dummy"` // tag in "enum:name" format
+    List2D [][]isOption `lcs:"enum:dummy"` // support multi-dim slices
 }
 
 // EnumTypes implement lcs.EnumTypeUser. It returns the ingredients used for
@@ -114,17 +115,17 @@ type MyStruct struct {
 func (*Option) EnumTypes() []EnumVariant {
 	return []EnumVariant{
 		{
-			Name:     "option",        // name should match the tags
+			Name:     "dummy",         // name should match the tags
 			Value:    0,               // numeric value of this variant
 			Template: (*Option0)(nil), // zero value of this variant type
 		},
 		{
-			Name:     "option",
+			Name:     "dummy",
 			Value:    1,
 			Template: (*Option1)(nil),
 		},
 		{
-			Name:     "option",
+			Name:     "dummy",
 			Value:    2,
 			Template: Option2(false),
 		},
