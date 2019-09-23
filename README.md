@@ -66,14 +66,14 @@ err = lcs.Unmarshal(bytes, out)
 
 ### Struct with optional fields
 
-Optional fields should be pointers with "optional" tag.
-
-Slices, maps or interfaces can not be optional, unless they are wrapped in a wrapper struct, a pointer to which can be optional.
+Optional fields should be pointers, slices or maps with "optional" tag.
 
 ```golang
 type MyStruct struct {
-    Label  *string   `lcs:"optional"`
-    Nested *MyStruct `lcs:"optional"`
+    Label  *string          `lcs:"optional"`
+    Nested *MyStruct        `lcs:"optional"`
+    Slice  []byte           `lcs:"optional"`
+    Map    map[uint8]uint8  `lcs:"optional"`
 }
 ```
 

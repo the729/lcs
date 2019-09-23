@@ -3,6 +3,7 @@ package lcs
 import (
 	"encoding/hex"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -24,26 +25,36 @@ func runTest(t *testing.T, cases []*testCase) {
 	var err error
 
 	for idx, c := range cases {
+		var name string
+		if c.name == "" {
+			name = strconv.Itoa(idx)
+		} else {
+			name = c.name
+		}
 		if !c.skipMarshal {
-			b, err = Marshal(c.v)
-			if c.errMarshal != nil {
-				assert.EqualError(t, err, c.errMarshal.Error())
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, c.b, b)
-			}
-			t.Logf("Case #%d(%s) marshal: Done", idx, c.name)
+			t.Run(name+"_marshal", func(t *testing.T) {
+				b, err = Marshal(c.v)
+				if c.errMarshal != nil {
+					assert.EqualError(t, err, c.errMarshal.Error())
+				} else {
+					assert.NoError(t, err)
+					assert.Equal(t, c.b, b)
+				}
+				// t.Logf("Case #%d(%s) marshal: Done", idx, c.name)
+			})
 		}
 		if !c.skipUnmarshal {
-			v := reflect.New(reflect.TypeOf(c.v))
-			err = Unmarshal(c.b, v.Interface())
-			if c.errUnmarshal != nil {
-				assert.EqualError(t, err, c.errUnmarshal.Error())
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, c.v, v.Elem().Interface())
-			}
-			t.Logf("Case #%d(%s) unmarshal: Done", idx, c.name)
+			t.Run(name+"_unmarshal", func(t *testing.T) {
+				v := reflect.New(reflect.TypeOf(c.v))
+				err = Unmarshal(c.b, v.Interface())
+				if c.errUnmarshal != nil {
+					assert.EqualError(t, err, c.errUnmarshal.Error())
+				} else {
+					assert.NoError(t, err)
+					assert.Equal(t, c.v, v.Elem().Interface())
+				}
+				// t.Logf("Case #%d(%s) unmarshal: Done", idx, c.name)
+			})
 		}
 	}
 }
@@ -233,12 +244,41 @@ func TestBasicStruct(t *testing.T) {
 	})
 }
 
+func TestRecursiveStruct(t *testing.T) {
+	type StructTag struct {
+		Address    []byte
+		Module     string
+		Name       string
+		TypeParams []*StructTag
+	}
+
+	runTest(t, []*testCase{
+		{
+			v: &StructTag{
+				Address:    []byte{0x11, 0x22},
+				Module:     "hello",
+				Name:       "world",
+				TypeParams: []*StructTag{},
+			},
+			b:    hexMustDecode("02000000 11 22 05000000 68656c6c6f 05000000 776f726c64 00000000"),
+			name: "recursive struct",
+		},
+	})
+}
+
 func TestOptional(t *testing.T) {
 	type Wrapper struct {
 		Ignored int     `lcs:"-"`
 		Name    *string `lcs:"optional"`
 	}
 	hello := "hello"
+
+	type Wrapper2 struct {
+		Slice []byte `lcs:"optional"`
+	}
+	type Wrapper3 struct {
+		Map map[uint8]uint8 `lcs:"optional"`
+	}
 
 	runTest(t, []*testCase{
 		{
@@ -249,11 +289,33 @@ func TestOptional(t *testing.T) {
 			name: "struct with set optional fields",
 		},
 		{
-			v: Wrapper{
-				Name: nil,
-			},
+			v:    Wrapper{},
 			b:    hexMustDecode("00"),
 			name: "struct with unset optional fields",
+		},
+		{
+			v: Wrapper2{
+				Slice: []byte(hello),
+			},
+			b:    hexMustDecode("01 05000000 68656c6c6f"),
+			name: "struct with set optional slice",
+		},
+		{
+			v:    Wrapper2{},
+			b:    hexMustDecode("00"),
+			name: "struct with unset optional slice",
+		},
+		{
+			v: Wrapper3{
+				Map: map[uint8]uint8{1: 2},
+			},
+			b:    hexMustDecode("01 01000000 01 02"),
+			name: "struct with set optional map",
+		},
+		{
+			v:    Wrapper3{},
+			b:    hexMustDecode("00"),
+			name: "struct with unset optional map",
 		},
 	})
 }

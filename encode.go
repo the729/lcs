@@ -118,7 +118,10 @@ func (e *Encoder) encodeStruct(rv reflect.Value) (err error) {
 			}
 		}
 
-		if fv.Kind() == reflect.Ptr && tag == "optional" {
+		if tag == "optional" &&
+			(fv.Kind() == reflect.Ptr ||
+				fv.Kind() == reflect.Slice ||
+				fv.Kind() == reflect.Map) {
 			if err = e.encode(reflect.ValueOf(!fv.IsNil()), nil); err != nil {
 				return err
 			}

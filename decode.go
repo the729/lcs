@@ -263,7 +263,10 @@ func (d *Decoder) decodeStruct(rv reflect.Value) (err error) {
 			}
 		}
 
-		if fv.Kind() == reflect.Ptr && tag == "optional" {
+		if tag == "optional" &&
+			(fv.Kind() == reflect.Ptr ||
+				fv.Kind() == reflect.Slice ||
+				fv.Kind() == reflect.Map) {
 			rb := reflect.New(reflect.TypeOf(false))
 			if err = d.decode(rb, nil); err != nil {
 				return
