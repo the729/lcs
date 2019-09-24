@@ -200,6 +200,11 @@ func TestBasicStruct(t *testing.T) {
 
 	runTest(t, []*testCase{
 		{
+			v:    struct{}{},
+			b:    nil,
+			name: "empty struct",
+		},
+		{
 			v: MyStruct{
 				Boolean: true,
 				Bytes:   []byte{0x11, 0x22},
@@ -338,9 +343,7 @@ func TestMap(t *testing.T) {
 type Option0 struct {
 	Data uint32
 }
-type Option1 struct {
-	Data uint64
-}
+type Option1 struct{}
 type Option2 bool
 type isOption interface {
 	isOption()
@@ -350,7 +353,7 @@ type Option struct {
 }
 
 func (*Option0) isOption() {}
-func (*Option1) isOption() {}
+func (Option1) isOption()  {}
 func (Option2) isOption()  {}
 func (*Option) EnumTypes() []EnumVariant {
 	return []EnumVariant{
@@ -362,7 +365,7 @@ func (*Option) EnumTypes() []EnumVariant {
 		{
 			Name:     "option",
 			Value:    1,
-			Template: (*Option1)(nil),
+			Template: Option1{},
 		},
 		{
 			Name:     "option",
@@ -379,28 +382,28 @@ func TestEnum(t *testing.T) {
 				Option: &Option0{5},
 			},
 			b:    hexMustDecode("0000 0000 0500 0000"),
-			name: "ptr to struct with ptr interface 0",
+			name: "ptr to struct with ptr enum variant",
 		},
 		{
 			v: &Option{
-				Option: &Option1{6},
+				Option: Option1{},
 			},
-			b:    hexMustDecode("0100 0000 0600 0000 0000 0000"),
-			name: "ptr to struct with ptr interface 1",
+			b:    hexMustDecode("0100 0000"),
+			name: "ptr to struct with non-ptr empty variant",
 		},
 		{
 			v: &Option{
 				Option: Option2(true),
 			},
 			b:    hexMustDecode("0200 0000 01"),
-			name: "ptr to struct with real value as interface",
+			name: "ptr to struct with real value as enum variant",
 		},
 		{
 			v: Option{
-				Option: &Option1{6},
+				Option: Option1{},
 			},
-			b:    hexMustDecode("0100 0000 0600 0000 0000 0000"),
-			name: "struct with enum with real struct interface",
+			b:    hexMustDecode("0100 0000"),
+			name: "non-ptr struct with variant",
 		},
 	})
 }
@@ -419,7 +422,7 @@ func (*Wrapper) EnumTypes() []EnumVariant {
 		{
 			Name:     "option",
 			Value:    1,
-			Template: (*Option1)(nil),
+			Template: Option1{},
 		},
 		{
 			Name:     "option",
@@ -435,11 +438,11 @@ func TestEnumSlice(t *testing.T) {
 			v: &Wrapper{
 				Option: []isOption{
 					&Option0{5},
-					&Option1{6},
+					Option1{},
 					Option2(true),
 				},
 			},
-			b:    hexMustDecode("03000000 00000000 05000000 01000000 0600000000000000 02000000 01"),
+			b:    hexMustDecode("03000000 00000000 05000000 01000000 02000000 01"),
 			name: "enum slice",
 		},
 	})

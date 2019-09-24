@@ -94,13 +94,11 @@ type isOption interface {
 type Option0 struct {
 	Data uint32
 }
-type Option1 struct {
-	Data uint64
-}
+type Option1 struct {} // Empty enum variant
 type Option2 bool
 // Variants should implement isOption
 func (*Option0) isOption() {}
-func (*Option1) isOption() {}
+func (Option1) isOption() {}
 func (Option2) isOption()  {}
 
 // MyStruct contains the enum type Option
@@ -110,8 +108,8 @@ type MyStruct struct {
     List2D [][]isOption `lcs:"enum:dummy"` // support multi-dim slices
 }
 
-// EnumTypes implement lcs.EnumTypeUser. It returns the ingredients used for
-// all enum types.
+// EnumTypes implement lcs.EnumTypeUser. It returns all the ingredients that can be 
+// used for all enum fields in the receiver struct type.
 func (*Option) EnumTypes() []EnumVariant {
 	return []EnumVariant{
 		{
@@ -122,7 +120,7 @@ func (*Option) EnumTypes() []EnumVariant {
 		{
 			Name:     "dummy",
 			Value:    1,
-			Template: (*Option1)(nil),
+			Template: Option1{},
 		},
 		{
 			Name:     "dummy",
