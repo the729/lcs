@@ -7,6 +7,8 @@
 
 Go library for Libra canonical serialization (and deserialization). See [LCS Spec](https://github.com/libra/libra/tree/master/common/canonical_serialization).
 
+For types defined and used in actual Libra blockchain, please visit [go-libra](https://github.com/the729/go-libra): Libra client library with crypto verifications.
+
 ## Installation
 
 ```bash
@@ -89,8 +91,8 @@ type isOption interface {
 	isOption()
 }
 
-// *Option0, *Option1 and Option2 are variants of isOption
-// Use pointers for struct types.
+// *Option0, Option1 and Option2 are variants of isOption
+// Use pointer for (non-empty) struct.
 type Option0 struct {
 	Data uint32
 }
