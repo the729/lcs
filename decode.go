@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -255,7 +256,7 @@ func (d *Decoder) decodeStruct(rv reflect.Value) (err error) {
 				}
 			}
 			if evsAll == nil {
-				return errors.New("enum variants not defined")
+				return fmt.Errorf("struct (%s) does not implement EnumTypeUser", rv.Type())
 			}
 			evs, ok = evsAll[enumName]
 			if !ok {
