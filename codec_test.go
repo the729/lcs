@@ -2,6 +2,7 @@ package lcs
 
 import (
 	"encoding/hex"
+	"errors"
 	"reflect"
 	"strconv"
 	"strings"
@@ -249,6 +250,39 @@ func TestBasicStruct(t *testing.T) {
 	})
 }
 
+func TestStructWithFixedLenMember(t *testing.T) {
+	type MyStruct struct {
+		Bytes         []byte `lcs:"len=4"`
+		OptionalBytes []byte `lcs:"len=4,optional"`
+	}
+
+	runTest(t, []*testCase{
+		{
+			v: MyStruct{
+				Bytes: []byte{0x11, 0x22},
+			},
+			errMarshal:    errors.New("actual len not equal to fixed len"),
+			name:          "struct with wrong fixed len",
+			skipUnmarshal: true,
+		},
+		{
+			v: MyStruct{
+				Bytes: []byte{0x11, 0x22, 0x33, 0x44},
+			},
+			b:    hexMustDecode("11223344 00"),
+			name: "struct with fixed len",
+		},
+		{
+			v: MyStruct{
+				Bytes:         []byte{0x11, 0x22, 0x33, 0x44},
+				OptionalBytes: []byte{0x55, 0x66, 0x77, 0x88},
+			},
+			b:    hexMustDecode("11223344 01 55667788"),
+			name: "struct with optional fixed len",
+		},
+	})
+}
+
 func TestRecursiveStruct(t *testing.T) {
 	type StructTag struct {
 		Address    []byte
@@ -349,31 +383,36 @@ type isOption interface {
 	isOption()
 }
 type Option struct {
-	Option isOption `lcs:"enum:option"`
+	Option isOption `lcs:"enum=option"`
+}
+type OptionalOption struct {
+	Option isOption `lcs:"optional,enum=option"`
 }
 
 func (*Option0) isOption() {}
 func (Option1) isOption()  {}
 func (Option2) isOption()  {}
-func (*Option) EnumTypes() []EnumVariant {
-	return []EnumVariant{
-		{
-			Name:     "option",
-			Value:    0,
-			Template: (*Option0)(nil),
-		},
-		{
-			Name:     "option",
-			Value:    1,
-			Template: Option1{},
-		},
-		{
-			Name:     "option",
-			Value:    2,
-			Template: Option2(false),
-		},
-	}
+
+var optionEnumDef = []EnumVariant{
+	{
+		Name:     "option",
+		Value:    0,
+		Template: (*Option0)(nil),
+	},
+	{
+		Name:     "option",
+		Value:    1,
+		Template: Option1{},
+	},
+	{
+		Name:     "option",
+		Value:    2,
+		Template: Option2(false),
+	},
 }
+
+func (*Option) EnumTypes() []EnumVariant         { return optionEnumDef }
+func (*OptionalOption) EnumTypes() []EnumVariant { return optionEnumDef }
 
 func TestEnum(t *testing.T) {
 	runTest(t, []*testCase{
@@ -405,11 +444,22 @@ func TestEnum(t *testing.T) {
 			b:    hexMustDecode("0100 0000"),
 			name: "non-ptr struct with variant",
 		},
+		{
+			v:    OptionalOption{},
+			name: "nil enum on optional field",
+			b:    hexMustDecode("00"),
+		},
+		{
+			v:             Option{},
+			name:          "nil variant on non-optional field",
+			skipUnmarshal: true,
+			errMarshal:    errors.New("non-optional enum value is nil"),
+		},
 	})
 }
 
 type Wrapper struct {
-	Option []isOption `lcs:"enum:option"`
+	Option []isOption `lcs:"enum=option"`
 }
 
 func (*Wrapper) EnumTypes() []EnumVariant {
@@ -449,7 +499,7 @@ func TestEnumSlice(t *testing.T) {
 }
 
 type Wrapper2 struct {
-	Option [][]isOption `lcs:"enum:option"`
+	Option [][]isOption `lcs:"enum=option"`
 }
 
 func (*Wrapper2) EnumTypes() []EnumVariant {

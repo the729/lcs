@@ -79,6 +79,18 @@ type MyStruct struct {
 }
 ```
 
+### Fixed length lists
+
+Fixed length lists are supported as member of structs with "len" tag.
+
+
+```golang
+type MyStruct struct {
+	Bytes         []byte `lcs:"len=4"`
+	OptionalBytes []byte `lcs:"len=4,optional"`
+}
+```
+
 ### Enum types
 
 Enum types are defined using interfaces. 
@@ -106,8 +118,8 @@ func (Option2) isOption()  {}
 // MyStruct contains the enum type Option
 type MyStruct struct {
     Name   string
-    Option isOption     `lcs:"enum:dummy"` // tag in "enum:name" format
-    List2D [][]isOption `lcs:"enum:dummy"` // support multi-dim slices
+    Option isOption     `lcs:"enum=dummy"` // tag in "enum=name" format
+    List2D [][]isOption `lcs:"enum=dummy"` // support multi-dim slices
 }
 
 // EnumTypes implement lcs.EnumTypeUser. It returns all the ingredients that can be 

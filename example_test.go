@@ -70,7 +70,7 @@ func (TxnArgString) isTransactionArg()  {}
 
 type Program struct {
 	Code    []byte
-	Args    []TransactionArgument `lcs:"enum:txn_arg"`
+	Args    []TransactionArgument `lcs:"enum=txn_arg"`
 	Modules [][]byte
 }
 
