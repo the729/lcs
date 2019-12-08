@@ -221,7 +221,7 @@ func (d *Decoder) decodeInterface(rv reflect.Value, enumVariants map[int32]refle
 	}
 	tpl, ok := enumVariants[typeVal]
 	if !ok {
-		return errors.New("enum variants not defined for value")
+		return fmt.Errorf("enum variant value %d unknown for interface: %s", typeVal, rv.Type())
 	}
 	if tpl.Kind() == reflect.Ptr {
 		rv1 := reflect.New(tpl.Elem())
