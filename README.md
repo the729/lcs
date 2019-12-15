@@ -29,7 +29,7 @@ You can serialize and deserialize the following basic types:
 - bool
 - int8, int16, int32, int64, uint8, uint16, uint32, uint64
 - string
-- slice, array, map
+- slice, map
 
 ```golang
 bytes, _ := lcs.Marshal("hello")
@@ -81,11 +81,14 @@ type MyStruct struct {
 
 ### Fixed length lists
 
-Fixed length lists are supported as member of structs with "len" tag.
+Arrays are treated as fixed length lists.
+
+You can also specify fixed length for struct members with `len` tag. Slices and strings are supported.
 
 
 ```golang
 type MyStruct struct {
+	Str           string `lcs:"len=2"`
 	Bytes         []byte `lcs:"len=4"`
 	OptionalBytes []byte `lcs:"len=4,optional"`
 }
