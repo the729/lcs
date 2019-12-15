@@ -252,6 +252,7 @@ func TestBasicStruct(t *testing.T) {
 
 func TestStructWithFixedLenMember(t *testing.T) {
 	type MyStruct struct {
+		Str           string `lcs:"len=2"`
 		Bytes         []byte `lcs:"len=4"`
 		OptionalBytes []byte `lcs:"len=4,optional"`
 	}
@@ -259,25 +260,37 @@ func TestStructWithFixedLenMember(t *testing.T) {
 	runTest(t, []*testCase{
 		{
 			v: MyStruct{
+				Str:   "12",
 				Bytes: []byte{0x11, 0x22},
 			},
 			errMarshal:    errors.New("actual len not equal to fixed len"),
-			name:          "struct with wrong fixed len",
+			name:          "struct with wrong fixed len (bytes)",
 			skipUnmarshal: true,
 		},
 		{
 			v: MyStruct{
+				Str:   "",
 				Bytes: []byte{0x11, 0x22, 0x33, 0x44},
 			},
-			b:    hexMustDecode("11223344 00"),
+			errMarshal:    errors.New("actual len not equal to fixed len"),
+			name:          "struct with wrong fixed len (string)",
+			skipUnmarshal: true,
+		},
+		{
+			v: MyStruct{
+				Str:   "12",
+				Bytes: []byte{0x11, 0x22, 0x33, 0x44},
+			},
+			b:    hexMustDecode("31 32 11223344 00"),
 			name: "struct with fixed len",
 		},
 		{
 			v: MyStruct{
+				Str:           "12",
 				Bytes:         []byte{0x11, 0x22, 0x33, 0x44},
 				OptionalBytes: []byte{0x55, 0x66, 0x77, 0x88},
 			},
-			b:    hexMustDecode("11223344 01 55667788"),
+			b:    hexMustDecode("3132 11223344 01 55667788"),
 			name: "struct with optional fixed len",
 		},
 	})

@@ -137,7 +137,7 @@ func (e *Encoder) encodeStruct(rv reflect.Value) (err error) {
 			}
 		}
 		fixedLen := 0
-		if fixedLenStr, ok := tag["len"]; ok && fv.Kind() == reflect.Slice {
+		if fixedLenStr, ok := tag["len"]; ok && (fv.Kind() == reflect.Slice || fv.Kind() == reflect.String) {
 			fixedLen, err = strconv.Atoi(fixedLenStr)
 			if err != nil {
 				return errors.New("tag len parse error: " + err.Error())
