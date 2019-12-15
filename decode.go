@@ -170,6 +170,9 @@ func (d *Decoder) decodeArray(rv reflect.Value, enumVariants map[int32]reflect.T
 	if !rv.CanSet() {
 		return errors.New("array cannot set")
 	}
+	if rv.Kind() == reflect.Array {
+		fixedLen = rv.Len()
+	}
 	if rv.Type().Elem() == reflect.TypeOf(byte(0)) {
 		var b []byte
 		if b, err = d.decodeByteSlice(fixedLen); err != nil {

@@ -150,19 +150,9 @@ func TestBasicSlice(t *testing.T) {
 			name: "byte slice",
 		},
 		{
-			v:    [6]byte{0x11, 0x22, 0x33, 0x44, 0x55},
-			b:    hexMustDecode("06000000 11 22 33 44 55 00"),
-			name: "byte array",
-		},
-		{
 			v:    []uint16{0x11, 0x22},
 			b:    hexMustDecode("02000000 1100 2200"),
 			name: "uint16 slice",
-		},
-		{
-			v:    [3]uint16{0x11, 0x22},
-			b:    hexMustDecode("03000000 1100 2200 0000"),
-			name: "uint16 array",
 		},
 		{
 			v:    "ሰማይ አይታረስ ንጉሥ አይከሰስ።",
@@ -292,6 +282,21 @@ func TestStructWithFixedLenMember(t *testing.T) {
 			},
 			b:    hexMustDecode("3132 11223344 01 55667788"),
 			name: "struct with optional fixed len",
+		},
+	})
+}
+
+func TestArray(t *testing.T) {
+	runTest(t, []*testCase{
+		{
+			v:    [4]byte{0x11, 0x22, 0x33, 0x44},
+			b:    hexMustDecode("11223344"),
+			name: "byte array",
+		},
+		{
+			v:    [2]uint32{0x11, 0x22},
+			b:    hexMustDecode("11000000 22000000"),
+			name: "uint32 array",
 		},
 	})
 }
