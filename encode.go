@@ -13,13 +13,13 @@ import (
 
 type Encoder struct {
 	w     *bufio.Writer
-	enums map[reflect.Type]map[string]map[reflect.Type]int32
+	enums map[reflect.Type]map[string]map[reflect.Type]EnumKeyType
 }
 
 func NewEncoder(w io.Writer) *Encoder {
 	return &Encoder{
 		w:     bufio.NewWriter(w),
-		enums: make(map[reflect.Type]map[string]map[reflect.Type]int32),
+		enums: make(map[reflect.Type]map[string]map[reflect.Type]EnumKeyType),
 	}
 }
 
@@ -31,7 +31,7 @@ func (e *Encoder) Encode(v interface{}) error {
 	return nil
 }
 
-func (e *Encoder) encode(rv reflect.Value, enumVariants map[reflect.Type]int32, fixedLen int) (err error) {
+func (e *Encoder) encode(rv reflect.Value, enumVariants map[reflect.Type]EnumKeyType, fixedLen int) (err error) {
 	// rv = indirect(rv)
 	switch rv.Kind() {
 	case reflect.Bool,
@@ -57,11 +57,11 @@ func (e *Encoder) encode(rv reflect.Value, enumVariants map[reflect.Type]int32, 
 	return nil
 }
 
-func (e *Encoder) encodeSlice(rv reflect.Value, enumVariants map[reflect.Type]int32, fixedLen int) (err error) {
+func (e *Encoder) encodeSlice(rv reflect.Value, enumVariants map[reflect.Type]EnumKeyType, fixedLen int) (err error) {
 	if rv.Kind() == reflect.Array {
 		// ignore fixedLen
 	} else if fixedLen == 0 {
-		if err = binary.Write(e.w, binary.LittleEndian, uint32(rv.Len())); err != nil {
+		if _, err := writeVarUint(e.w, uint64(rv.Len())); err != nil {
 			return err
 		}
 	} else if fixedLen != rv.Len() {
@@ -76,7 +76,7 @@ func (e *Encoder) encodeSlice(rv reflect.Value, enumVariants map[reflect.Type]in
 	return nil
 }
 
-func (e *Encoder) encodeInterface(rv reflect.Value, enumVariants map[reflect.Type]int32) (err error) {
+func (e *Encoder) encodeInterface(rv reflect.Value, enumVariants map[reflect.Type]EnumKeyType) (err error) {
 	if enumVariants == nil {
 		return errors.New("enum variants not defined for interface: " + rv.Type().String())
 	}
@@ -88,7 +88,7 @@ func (e *Encoder) encodeInterface(rv reflect.Value, enumVariants map[reflect.Typ
 	if !ok {
 		return errors.New("enum variants not defined for type: " + rv.Type().String())
 	}
-	if err = binary.Write(e.w, binary.LittleEndian, ev); err != nil {
+	if _, err = writeVarUint(e.w, ev); err != nil {
 		return
 	}
 	if err = e.encode(rv, nil, 0); err != nil {
@@ -109,7 +109,7 @@ func (e *Encoder) encodeStruct(rv reflect.Value) (err error) {
 		}
 		tag := parseTag(rt.Field(i).Tag.Get(lcsTagName))
 
-		var evs map[reflect.Type]int32
+		var evs map[reflect.Type]EnumKeyType
 		if enumName, ok := tag["enum"]; ok {
 			evsAll, ok := e.enums[rv.Type()]
 			if !ok {
@@ -153,7 +153,7 @@ func (e *Encoder) encodeStruct(rv reflect.Value) (err error) {
 }
 
 func (e *Encoder) encodeMap(rv reflect.Value) (err error) {
-	err = binary.Write(e.w, binary.LittleEndian, uint32(rv.Len()))
+	_, err = writeVarUint(e.w, uint64(rv.Len()))
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func (e *Encoder) encodeMap(rv reflect.Value) (err error) {
 	return nil
 }
 
-func (e *Encoder) getEnumVariants(rv reflect.Value) map[string]map[reflect.Type]int32 {
+func (e *Encoder) getEnumVariants(rv reflect.Value) map[string]map[reflect.Type]EnumKeyType {
 	vv, ok := rv.Interface().(EnumTypeUser)
 	if !ok {
 		vv, ok = reflect.New(reflect.PtrTo(rv.Type())).Elem().Interface().(EnumTypeUser)
@@ -192,12 +192,12 @@ func (e *Encoder) getEnumVariants(rv reflect.Value) map[string]map[reflect.Type]
 			return nil
 		}
 	}
-	r := make(map[string]map[reflect.Type]int32)
+	r := make(map[string]map[reflect.Type]EnumKeyType)
 	evs := vv.EnumTypes()
 	for _, ev := range evs {
 		evt := reflect.TypeOf(ev.Template)
 		if r[ev.Name] == nil {
-			r[ev.Name] = make(map[reflect.Type]int32)
+			r[ev.Name] = make(map[reflect.Type]EnumKeyType)
 		}
 		r[ev.Name][evt] = ev.Value
 	}

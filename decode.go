@@ -12,13 +12,13 @@ import (
 
 type Decoder struct {
 	r     io.Reader
-	enums map[reflect.Type]map[string]map[int32]reflect.Type
+	enums map[reflect.Type]map[string]map[EnumKeyType]reflect.Type
 }
 
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{
 		r:     r,
-		enums: make(map[reflect.Type]map[string]map[int32]reflect.Type),
+		enums: make(map[reflect.Type]map[string]map[EnumKeyType]reflect.Type),
 	}
 }
 
@@ -38,7 +38,7 @@ func (d *Decoder) EOF() bool {
 	return false
 }
 
-func (d *Decoder) decode(rv reflect.Value, enumVariants map[int32]reflect.Type, fixedLen int) (err error) {
+func (d *Decoder) decode(rv reflect.Value, enumVariants map[EnumKeyType]reflect.Type, fixedLen int) (err error) {
 	switch rv.Kind() {
 	case reflect.Bool:
 		if !rv.CanSet() {
@@ -87,9 +87,11 @@ func (d *Decoder) decode(rv reflect.Value, enumVariants map[int32]reflect.Type, 
 func (d *Decoder) decodeByteSlice(fixedLen int) (b []byte, err error) {
 	l := uint32(fixedLen)
 	if l == 0 {
-		if err = binary.Read(d.r, binary.LittleEndian, &l); err != nil {
-			return
+		l1, err := readVarUint(d.r, 28)
+		if err != nil {
+			return nil, err
 		}
+		l = uint32(l1)
 		if l > maxByteSliceSize {
 			return nil, errors.New("byte slice longer than 100MB not supported")
 		}
@@ -101,7 +103,7 @@ func (d *Decoder) decodeByteSlice(fixedLen int) (b []byte, err error) {
 	return
 }
 
-func (d *Decoder) decodeSlice(rv reflect.Value, enumVariants map[int32]reflect.Type, fixedLen int) (err error) {
+func (d *Decoder) decodeSlice(rv reflect.Value, enumVariants map[EnumKeyType]reflect.Type, fixedLen int) (err error) {
 	if !rv.CanSet() {
 		return errors.New("slice cannot set")
 	}
@@ -117,9 +119,11 @@ func (d *Decoder) decodeSlice(rv reflect.Value, enumVariants map[int32]reflect.T
 	l := uint32(fixedLen)
 	var cap int
 	if l == 0 {
-		if err = binary.Read(d.r, binary.LittleEndian, &l); err != nil {
-			return
+		l1, err := readVarUint(d.r, 28)
+		if err != nil {
+			return err
 		}
+		l = uint32(l1)
 		cap = int(l)
 		if cap > sliceAndMapInitSize {
 			cap = sliceAndMapInitSize
@@ -142,10 +146,11 @@ func (d *Decoder) decodeMap(rv reflect.Value) (err error) {
 		return errors.New("map cannot set")
 	}
 
-	l := uint32(0)
-	if err = binary.Read(d.r, binary.LittleEndian, &l); err != nil {
+	l1, err := readVarUint(d.r, 28)
+	if err != nil {
 		return
 	}
+	l := uint32(l1)
 	cap := int(l)
 	if cap > sliceAndMapInitSize {
 		cap = sliceAndMapInitSize
@@ -166,7 +171,7 @@ func (d *Decoder) decodeMap(rv reflect.Value) (err error) {
 	return
 }
 
-func (d *Decoder) decodeArray(rv reflect.Value, enumVariants map[int32]reflect.Type, fixedLen int) (err error) {
+func (d *Decoder) decodeArray(rv reflect.Value, enumVariants map[EnumKeyType]reflect.Type, fixedLen int) (err error) {
 	if !rv.CanSet() {
 		return errors.New("array cannot set")
 	}
@@ -187,9 +192,11 @@ func (d *Decoder) decodeArray(rv reflect.Value, enumVariants map[int32]reflect.T
 
 	l := uint32(fixedLen)
 	if l == 0 {
-		if err = binary.Read(d.r, binary.LittleEndian, &l); err != nil {
-			return
+		l1, err := readVarUint(d.r, 28)
+		if err != nil {
+			return err
 		}
+		l = uint32(l1)
 	}
 	if int(l) != rv.Len() {
 		return errors.New("length mismatch")
@@ -214,12 +221,12 @@ func (d *Decoder) decodeString(rv reflect.Value, fixedLen int) (err error) {
 	return
 }
 
-func (d *Decoder) decodeInterface(rv reflect.Value, enumVariants map[int32]reflect.Type) (err error) {
+func (d *Decoder) decodeInterface(rv reflect.Value, enumVariants map[EnumKeyType]reflect.Type) (err error) {
 	if enumVariants == nil {
 		return errors.New("enum variants not defined for interface: " + rv.Type().String())
 	}
-	typeVal := int32(0)
-	if err = binary.Read(d.r, binary.LittleEndian, &typeVal); err != nil {
+	typeVal, err := readVarUint(d.r, 28)
+	if err != nil {
 		return
 	}
 	tpl, ok := enumVariants[typeVal]
@@ -256,7 +263,7 @@ func (d *Decoder) decodeStruct(rv reflect.Value) (err error) {
 			continue
 		}
 		tag := parseTag(rt.Field(i).Tag.Get(lcsTagName))
-		var evs map[int32]reflect.Type
+		var evs map[EnumKeyType]reflect.Type
 		if enumName, ok := tag["enum"]; ok {
 			evsAll, ok := d.enums[rv.Type()]
 			if !ok {
@@ -301,7 +308,7 @@ func (d *Decoder) decodeStruct(rv reflect.Value) (err error) {
 	return
 }
 
-func (d *Decoder) getEnumVariants(rv reflect.Value) map[string]map[int32]reflect.Type {
+func (d *Decoder) getEnumVariants(rv reflect.Value) map[string]map[EnumKeyType]reflect.Type {
 	vv, ok := rv.Interface().(EnumTypeUser)
 	if !ok {
 		vv, ok = reflect.New(reflect.PtrTo(rv.Type())).Elem().Interface().(EnumTypeUser)
@@ -309,12 +316,12 @@ func (d *Decoder) getEnumVariants(rv reflect.Value) map[string]map[int32]reflect
 			return nil
 		}
 	}
-	r := make(map[string]map[int32]reflect.Type)
+	r := make(map[string]map[EnumKeyType]reflect.Type)
 	evs := vv.EnumTypes()
 	for _, ev := range evs {
 		evt := reflect.TypeOf(ev.Template)
 		if r[ev.Name] == nil {
-			r[ev.Name] = make(map[int32]reflect.Type)
+			r[ev.Name] = make(map[EnumKeyType]reflect.Type)
 		}
 		r[ev.Name][ev.Value] = evt
 	}

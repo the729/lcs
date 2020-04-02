@@ -18,6 +18,8 @@ const (
 	sliceAndMapInitSize = 100
 )
 
+type EnumKeyType = uint64
+
 // EnumVariant is a definition of a variant of enum type.
 type EnumVariant struct {
 	// Name of the enum type. Different variants of a same enum type should have same name.
@@ -25,7 +27,7 @@ type EnumVariant struct {
 	Name string
 
 	// Value is the numeric value of the enum variant. Should be unique within the same enum type.
-	Value int32
+	Value EnumKeyType
 
 	// Template object for the enum variant. Should be the zero value of the variant type.
 	//
