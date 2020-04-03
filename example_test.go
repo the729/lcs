@@ -31,7 +31,7 @@ func ExampleMarshal_struct() {
 	}
 
 	fmt.Printf("%x", bytes)
-	// Output: 010004000000010203040500000068656c6c6f0400000074657374
+	// Output: 010004010203040568656c6c6f0474657374
 }
 
 func ExampleUnmarshal_struct() {
@@ -46,7 +46,7 @@ func ExampleUnmarshal_struct() {
 		Name  string
 	}
 
-	bytes, _ := hex.DecodeString("010004000000010203040500000068656c6c6f0400000074657374")
+	bytes, _ := hex.DecodeString("010004010203040568656c6c6f0474657374")
 	out := &Wrapper{}
 	err := lcs.Unmarshal(bytes, out)
 	if err != nil {
@@ -99,11 +99,11 @@ func ExampleMarshal_libra_program() {
 
 	fmt.Printf("%X\n", bytes)
 	// Output:
-	// 040000006D6F766502000000020000000900000043414645204430304402000000090000006361666520643030640300000001000000CA02000000FED0010000000D
+	// 046D6F766502020943414645204430304402096361666520643030640301CA02FED0010D
 }
 
 func ExampleUnmarshal_libra_program() {
-	bytes, _ := hex.DecodeString("040000006D6F766502000000020000000900000043414645204430304402000000090000006361666520643030640300000001000000CA02000000FED0010000000D")
+	bytes, _ := hex.DecodeString("046D6F766502020943414645204430304402096361666520643030640301CA02FED0010D")
 	out := &Program{}
 	err := lcs.Unmarshal(bytes, out)
 	if err != nil {

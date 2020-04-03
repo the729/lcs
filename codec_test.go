@@ -146,17 +146,22 @@ func TestBasicSlice(t *testing.T) {
 	runTest(t, []*testCase{
 		{
 			v:    []byte{0x11, 0x22, 0x33, 0x44, 0x55},
-			b:    hexMustDecode("05000000 11 22 33 44 55"),
+			b:    hexMustDecode("05 11 22 33 44 55"),
 			name: "byte slice",
 		},
 		{
 			v:    []uint16{0x11, 0x22},
-			b:    hexMustDecode("02000000 1100 2200"),
+			b:    hexMustDecode("02 1100 2200"),
 			name: "uint16 slice",
 		},
 		{
+			v:    make([]uint8, 130),
+			b:    hexMustDecode("8201 " + strings.Repeat("00", 130)),
+			name: "uint8 long slice",
+		},
+		{
 			v:    "ሰማይ አይታረስ ንጉሥ አይከሰስ።",
-			b:    hexMustDecode("36000000E188B0E1889BE18BAD20E18AA0E18BADE189B3E188A8E188B520E18A95E18C89E188A520E18AA0E18BADE18AA8E188B0E188B5E18DA2"),
+			b:    hexMustDecode("36E188B0E1889BE18BAD20E18AA0E18BADE189B3E188A8E188B520E18A95E18C89E188A520E18AA0E18BADE18AA8E188B0E188B5E18DA2"),
 			name: "utf8 string",
 		},
 	})
@@ -166,12 +171,12 @@ func Test2DSlice(t *testing.T) {
 	runTest(t, []*testCase{
 		{
 			v:    [][]byte{{0x01, 0x02}, {0x11, 0x12, 0x13}, {0x21}},
-			b:    hexMustDecode("03000000 02000000 0102 03000000 111213 01000000 21"),
+			b:    hexMustDecode("03 02 0102 03 111213 01 21"),
 			name: "2d byte slice",
 		},
 		{
 			v:    []string{"hello", "world"},
-			b:    hexMustDecode("02000000 05000000 68656c6c6f 05000000 776f726c64"),
+			b:    hexMustDecode("02 05 68656c6c6f 05 776f726c64"),
 			name: "string slice",
 		},
 	})
@@ -201,7 +206,7 @@ func TestBasicStruct(t *testing.T) {
 				Bytes:   []byte{0x11, 0x22},
 				Label:   "hello",
 			},
-			b:    hexMustDecode("01 02000000 11 22 05000000 68656c6c6f"),
+			b:    hexMustDecode("01 02 11 22 05 68656c6c6f"),
 			name: "struct with unexported fields",
 		},
 		{
@@ -210,7 +215,7 @@ func TestBasicStruct(t *testing.T) {
 				Bytes:   []byte{0x11, 0x22},
 				Label:   "hello",
 			},
-			b:    hexMustDecode("01 02000000 11 22 05000000 68656c6c6f"),
+			b:    hexMustDecode("01 02 11 22 05 68656c6c6f"),
 			name: "pointer to struct",
 		},
 		{
@@ -222,7 +227,7 @@ func TestBasicStruct(t *testing.T) {
 				},
 				Name: "world",
 			},
-			b:    hexMustDecode("01 02000000 11 22 05000000 68656c6c6f 05000000 776f726c64"),
+			b:    hexMustDecode("01 02 11 22 05 68656c6c6f 05 776f726c64"),
 			name: "nested struct",
 		},
 		{
@@ -234,7 +239,7 @@ func TestBasicStruct(t *testing.T) {
 				},
 				Name: "world",
 			},
-			b:    hexMustDecode("01 02000000 11 22 05000000 68656c6c6f 05000000 776f726c64"),
+			b:    hexMustDecode("01 02 1122 05 68656c6c6f 05 776f726c64"),
 			name: "pointer to nested struct",
 		},
 	})
@@ -317,7 +322,7 @@ func TestRecursiveStruct(t *testing.T) {
 				Name:       "world",
 				TypeParams: []*StructTag{},
 			},
-			b:    hexMustDecode("02000000 11 22 05000000 68656c6c6f 05000000 776f726c64 00000000"),
+			b:    hexMustDecode("02 1122 05 68656c6c6f 05 776f726c64 00"),
 			name: "recursive struct",
 		},
 	})
@@ -342,7 +347,7 @@ func TestOptional(t *testing.T) {
 			v: Wrapper{
 				Name: &hello,
 			},
-			b:    hexMustDecode("01 05000000 68656c6c6f"),
+			b:    hexMustDecode("01 05 68656c6c6f"),
 			name: "struct with set optional fields",
 		},
 		{
@@ -354,7 +359,7 @@ func TestOptional(t *testing.T) {
 			v: Wrapper2{
 				Slice: []byte(hello),
 			},
-			b:    hexMustDecode("01 05000000 68656c6c6f"),
+			b:    hexMustDecode("01 05 68656c6c6f"),
 			name: "struct with set optional slice",
 		},
 		{
@@ -366,7 +371,7 @@ func TestOptional(t *testing.T) {
 			v: Wrapper3{
 				Map: map[uint8]uint8{1: 2},
 			},
-			b:    hexMustDecode("01 01000000 01 02"),
+			b:    hexMustDecode("01 01 01 02"),
 			name: "struct with set optional map",
 		},
 		{
@@ -381,12 +386,12 @@ func TestMap(t *testing.T) {
 	runTest(t, []*testCase{
 		{
 			v:    map[uint8]string{1: "hello", 2: "world"},
-			b:    hexMustDecode("02000000 01 05000000 68656c6c6f 02 05000000 776f726c64"),
+			b:    hexMustDecode("02 01 05 68656c6c6f 02 05 776f726c64"),
 			name: "map[uint8]string",
 		},
 		{
 			v:    map[string]uint8{"hello": 1, "world": 2},
-			b:    hexMustDecode("02000000 05000000 68656c6c6f 01 05000000 776f726c64 02"),
+			b:    hexMustDecode("02 05 68656c6c6f 01 05 776f726c64 02"),
 			name: "map[string]uint8",
 		},
 	})
@@ -438,28 +443,28 @@ func TestEnum(t *testing.T) {
 			v: &Option{
 				Option: &Option0{5},
 			},
-			b:    hexMustDecode("0000 0000 0500 0000"),
+			b:    hexMustDecode("00 0500 0000"),
 			name: "ptr to struct with ptr enum variant",
 		},
 		{
 			v: &Option{
 				Option: Option1{},
 			},
-			b:    hexMustDecode("0100 0000"),
+			b:    hexMustDecode("01"),
 			name: "ptr to struct with non-ptr empty variant",
 		},
 		{
 			v: &Option{
 				Option: Option2(true),
 			},
-			b:    hexMustDecode("0200 0000 01"),
+			b:    hexMustDecode("02 01"),
 			name: "ptr to struct with real value as enum variant",
 		},
 		{
 			v: Option{
 				Option: Option1{},
 			},
-			b:    hexMustDecode("0100 0000"),
+			b:    hexMustDecode("01"),
 			name: "non-ptr struct with variant",
 		},
 		{
@@ -510,7 +515,7 @@ func TestEnumSlice(t *testing.T) {
 					Option2(true),
 				},
 			},
-			b:    hexMustDecode("03000000 00000000 05000000 01000000 02000000 01"),
+			b:    hexMustDecode("03 00 05000000 01 02 01"),
 			name: "enum slice",
 		},
 	})
@@ -554,7 +559,7 @@ func TestEnum2DSlice(t *testing.T) {
 					},
 				},
 			},
-			b:    hexMustDecode("02000000 02000000 00000000 05000000 02000000 01 01000000 02000000 00"),
+			b:    hexMustDecode("02 02 00 05000000 02 01 01 02 00"),
 			name: "2D enum slice",
 		},
 	})
