@@ -402,6 +402,7 @@ type Option0 struct {
 }
 type Option1 struct{}
 type Option2 bool
+type Option3 []byte
 type isOption interface {
 	isOption()
 }
@@ -415,6 +416,7 @@ type OptionalOption struct {
 func (*Option0) isOption() {}
 func (Option1) isOption()  {}
 func (Option2) isOption()  {}
+func (Option3) isOption()  {}
 
 var optionEnumDef = []EnumVariant{
 	{
@@ -431,6 +433,11 @@ var optionEnumDef = []EnumVariant{
 		Name:     "option",
 		Value:    2,
 		Template: Option2(false),
+	},
+	{
+		Name:     "option",
+		Value:    3,
+		Template: Option3(nil),
 	},
 }
 
@@ -461,6 +468,20 @@ func TestEnum(t *testing.T) {
 			name: "ptr to struct with real value as enum variant",
 		},
 		{
+			v: &Option{
+				Option: Option3([]byte{0x11, 0x22}),
+			},
+			b:    hexMustDecode("03 02 11 22"),
+			name: "ptr to struct with slice as enum variant",
+		},
+		{
+			v: &Option{
+				Option: Option3([]byte{}),
+			},
+			b:    hexMustDecode("03 00"),
+			name: "ptr to struct with nil slice as enum variant",
+		},
+		{
 			v: Option{
 				Option: Option1{},
 			},
@@ -481,11 +502,45 @@ func TestEnum(t *testing.T) {
 	})
 }
 
-type Wrapper struct {
+type OptionWrap struct {
+	OptionStruct    Option
+	OptionStructPtr *Option
+}
+
+func TestEnumInStruct(t *testing.T) {
+	runTest(t, []*testCase{
+		{
+			v: &OptionWrap{
+				OptionStruct: Option{
+					Option: Option3([]byte{0x11, 0x22}),
+				},
+				OptionStructPtr: &Option{
+					Option: Option1{},
+				},
+			},
+			b:    hexMustDecode("03 02 1122 01"),
+			name: "enum struct in struct",
+		},
+		{
+			v: &OptionWrap{
+				OptionStructPtr: &Option{
+					Option: Option3([]byte{0x11, 0x22}),
+				},
+				OptionStruct: Option{
+					Option: Option1{},
+				},
+			},
+			b:    hexMustDecode("01 03 02 1122"),
+			name: "enum struct in struct 2",
+		},
+	})
+}
+
+type OptionSlice struct {
 	Option []isOption `lcs:"enum=option"`
 }
 
-func (*Wrapper) EnumTypes() []EnumVariant {
+func (*OptionSlice) EnumTypes() []EnumVariant {
 	return []EnumVariant{
 		{
 			Name:     "option",
@@ -508,7 +563,7 @@ func (*Wrapper) EnumTypes() []EnumVariant {
 func TestEnumSlice(t *testing.T) {
 	runTest(t, []*testCase{
 		{
-			v: &Wrapper{
+			v: &OptionSlice{
 				Option: []isOption{
 					&Option0{5},
 					Option1{},
@@ -521,11 +576,11 @@ func TestEnumSlice(t *testing.T) {
 	})
 }
 
-type Wrapper2 struct {
+type OptionSlice2D struct {
 	Option [][]isOption `lcs:"enum=option"`
 }
 
-func (*Wrapper2) EnumTypes() []EnumVariant {
+func (*OptionSlice2D) EnumTypes() []EnumVariant {
 	return []EnumVariant{
 		{
 			Name:     "option",
@@ -548,7 +603,7 @@ func (*Wrapper2) EnumTypes() []EnumVariant {
 func TestEnum2DSlice(t *testing.T) {
 	runTest(t, []*testCase{
 		{
-			v: &Wrapper2{
+			v: &OptionSlice2D{
 				Option: [][]isOption{
 					{
 						&Option0{5},
