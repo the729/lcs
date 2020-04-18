@@ -5,7 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/the729/lcs)](https://goreportcard.com/report/github.com/the729/lcs)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/a70c457b8b7d44c0b69460b2a8704365)](https://www.codacy.com/app/the729/lcs?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=the729/lcs&amp;utm_campaign=Badge_Grade)
 
-Go library for Libra canonical serialization (and deserialization). See [LCS Spec](https://github.com/libra/libra/tree/master/common/canonical_serialization).
+Go library for Libra canonical serialization (and deserialization). See [LCS Spec](https://github.com/libra/libra/tree/6a89e827b95405066dc83eec97eca2cb75bc991d/common/canonical-serialization).
 
 For types defined and used in actual Libra blockchain, please visit [go-libra](https://github.com/the729/go-libra): Libra client library with crypto verifications.
 
@@ -103,38 +103,28 @@ Enum types are golang interfaces.
 ```golang
 // Enum1 is an enum type.
 type Enum1 interface {
-	isEnum1()	// optional: a dummy function to identify its variants.
+//	isEnum1()	// optional: member functions
 }
 
-// *Enum1Opt0, Enum1Opt1, Enum1Opt2, Enum1Opt3 are variants of Enum1
-// Use pointer for non-empty struct.
-// Use empty struct for a variant without contents.
+// *Enum1Opt0, Enum1Opt1, Enum1Opt2 are variants of Enum1
 type Enum1Opt0 struct {
 	Data uint32
 }
-type Enum1Opt1 bool
-type Enum1Opt2 []byte
-type Enum1Opt3 []Enum1	// self reference is OK
-
-// Variants should implement Enum1
-func (*Enum1Opt0) isEnum1() {}
-func (Enum1Opt1) isEnum1()  {}
-func (Enum1Opt2) isEnum1()  {}
-func (Enum1Opt3) isEnum1()  {}
+type Enum1Opt1 struct{} // Use empty struct for a variant without contents.
+type Enum1Opt2 []Enum1	// self reference is OK
 
 // Register Enum1 with LCS. Will be available globaly.
 var _ = lcs.RegisterEnum(
 	// nil pointer to the enum interface type:
 	(*Enum1)(nil),
 	// zero-values of each variants
-	(*Enum1Opt0)(nil),
-	Enum1Opt1(false),
+	(*Enum1Opt0)(nil), 	// Use pointer for non-empty struct.
+	Enum1Opt1{},
 	Enum1Opt2(nil),
-	Enum1Opt3(nil),
 )
 
 // Usage: Marshal the enum alone, must use pointer
-e1 := Enum1(Enum1Opt1(true))
+e1 := Enum1(Enum1Opt1{})
 bytes, err := lcs.Marshal(&e1)
 
 // Use Enum1 within other structs
@@ -142,7 +132,7 @@ type Wrapper struct {
 	Enum Enum1
 }
 bytes, err := lcs.Marshal(&Wrapper{
-	Enum: Enum1Opt1(true),
+	Enum: Enum1Opt0{10},
 })
 
 ```

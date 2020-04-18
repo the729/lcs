@@ -57,23 +57,14 @@ func ExampleUnmarshal_struct() {
 	// Output: Name: test, Label: hello
 }
 
-type TransactionArgument interface {
-	isTransactionArg()
-}
-type TxnArgU64 uint64
-type TxnArgAddress [32]byte
-type TxnArgString string
-
-func (TxnArgU64) isTransactionArg()     {}
-func (TxnArgAddress) isTransactionArg() {}
-func (TxnArgString) isTransactionArg()  {}
+type TransactionArgument interface{}
 
 // Register TransactionArgument with LCS. Will be available globaly.
 var _ = lcs.RegisterEnum(
 	// pointer to enum interface:
 	(*TransactionArgument)(nil),
 	// zero-value of variants:
-	TxnArgU64(0), TxnArgAddress([32]byte{}), TxnArgString(""),
+	uint64(0), [32]byte{}, "",
 )
 
 type Program struct {
@@ -86,8 +77,8 @@ func ExampleMarshal_libra_program() {
 	prog := &Program{
 		Code: []byte("move"),
 		Args: []TransactionArgument{
-			TxnArgString("CAFE D00D"),
-			TxnArgString("cafe d00d"),
+			"CAFE D00D",
+			"cafe d00d",
 		},
 		Modules: [][]byte{{0xca}, {0xfe, 0xd0}, {0x0d}},
 	}
