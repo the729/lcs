@@ -96,54 +96,53 @@ type MyStruct struct {
 
 ### Enum types
 
-Enum types are defined using interfaces. 
+Enum types are golang interfaces.
 
-Enum types can only be struct fields, with "enum" tags. Stand-alone enum types are not supported.
+(The [old enum API](https://github.com/the729/lcs/blob/v0.1.4/README.md#enum-types) is deprecated.)
 
 ```golang
-// isOption is an enum type. It has a dummy function to identify its variants.
-type isOption interface {
-	isOption()
+// Enum1 is an enum type.
+type Enum1 interface {
+	isEnum1()	// optional: a dummy function to identify its variants.
 }
 
-// *Option0, Option1 and Option2 are variants of isOption
-// Use pointer for (non-empty) struct.
-type Option0 struct {
+// *Enum1Opt0, Enum1Opt1, Enum1Opt2, Enum1Opt3 are variants of Enum1
+// Use pointer for non-empty struct.
+// Use empty struct for a variant without contents.
+type Enum1Opt0 struct {
 	Data uint32
 }
-type Option1 struct {} // Empty enum variant
-type Option2 bool
-// Variants should implement isOption
-func (*Option0) isOption() {}
-func (Option1) isOption() {}
-func (Option2) isOption()  {}
+type Enum1Opt1 bool
+type Enum1Opt2 []byte
+type Enum1Opt3 []Enum1	// self reference is OK
 
-// MyStruct contains the enum type Option
-type MyStruct struct {
-    Name   string
-    Option isOption     `lcs:"enum=dummy"` // tag in "enum=name" format
-    List2D [][]isOption `lcs:"enum=dummy"` // support multi-dim slices
-}
+// Variants should implement Enum1
+func (*Enum1Opt0) isEnum1() {}
+func (Enum1Opt1) isEnum1()  {}
+func (Enum1Opt2) isEnum1()  {}
+func (Enum1Opt3) isEnum1()  {}
 
-// EnumTypes implement lcs.EnumTypeUser. It returns all the ingredients that can be 
-// used for all enum fields in the receiver struct type.
-func (*Option) EnumTypes() []EnumVariant {
-	return []EnumVariant{
-		{
-			Name:     "dummy",         // name should match the tags
-			Value:    0,               // numeric value of this variant
-			Template: (*Option0)(nil), // zero value of this variant type
-		},
-		{
-			Name:     "dummy",
-			Value:    1,
-			Template: Option1{},
-		},
-		{
-			Name:     "dummy",
-			Value:    2,
-			Template: Option2(false),
-		},
-	}
+// Register Enum1 with LCS. Will be available globaly.
+var _ = lcs.RegisterEnum(
+	// nil pointer to the enum interface type:
+	(*Enum1)(nil),
+	// zero-values of each variants
+	(*Enum1Opt0)(nil),
+	Enum1Opt1(false),
+	Enum1Opt2(nil),
+	Enum1Opt3(nil),
+)
+
+// Usage: Marshal the enum alone, must use pointer
+e1 := Enum1(Enum1Opt1(true))
+bytes, err := lcs.Marshal(&e1)
+
+// Use Enum1 within other structs
+type Wrapper struct {
+	Enum Enum1
 }
+bytes, err := lcs.Marshal(&Wrapper{
+	Enum: Enum1Opt1(true),
+})
+
 ```

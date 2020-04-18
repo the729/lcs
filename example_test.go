@@ -68,18 +68,18 @@ func (TxnArgU64) isTransactionArg()     {}
 func (TxnArgAddress) isTransactionArg() {}
 func (TxnArgString) isTransactionArg()  {}
 
+// Register TransactionArgument with LCS. Will be available globaly.
+var _ = lcs.RegisterEnum(
+	// pointer to enum interface:
+	(*TransactionArgument)(nil),
+	// zero-value of variants:
+	TxnArgU64(0), TxnArgAddress([32]byte{}), TxnArgString(""),
+)
+
 type Program struct {
 	Code    []byte
-	Args    []TransactionArgument `lcs:"enum=txn_arg"`
+	Args    []TransactionArgument
 	Modules [][]byte
-}
-
-func (*Program) EnumTypes() []lcs.EnumVariant {
-	return []lcs.EnumVariant{
-		{"txn_arg", 0, TxnArgU64(0)},
-		{"txn_arg", 1, TxnArgAddress([32]byte{})},
-		{"txn_arg", 2, TxnArgString("")},
-	}
 }
 
 func ExampleMarshal_libra_program() {

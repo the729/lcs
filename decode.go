@@ -222,16 +222,16 @@ func (d *Decoder) decodeString(rv reflect.Value, fixedLen int) (err error) {
 }
 
 func (d *Decoder) decodeInterface(rv reflect.Value, enumVariants map[EnumKeyType]reflect.Type) (err error) {
-	if enumVariants == nil {
-		return errors.New("enum variants not defined for interface: " + rv.Type().String())
-	}
 	typeVal, err := readVarUint(d.r, 28)
 	if err != nil {
 		return
 	}
-	tpl, ok := enumVariants[typeVal]
+	tpl, ok := enumGetTypeByIdx(rv.Type(), typeVal)
 	if !ok {
-		return fmt.Errorf("enum variant value %d unknown for interface: %s", typeVal, rv.Type())
+		tpl, ok = enumVariants[typeVal]
+		if !ok {
+			return fmt.Errorf("enum variant value %d unknown for interface: %s", typeVal, rv.Type())
+		}
 	}
 	if tpl.Kind() == reflect.Ptr {
 		rv1 := reflect.New(tpl.Elem())

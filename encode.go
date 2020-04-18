@@ -77,21 +77,22 @@ func (e *Encoder) encodeSlice(rv reflect.Value, enumVariants map[reflect.Type]En
 }
 
 func (e *Encoder) encodeInterface(rv reflect.Value, enumVariants map[reflect.Type]EnumKeyType) (err error) {
-	if enumVariants == nil {
-		return errors.New("enum variants not defined for interface: " + rv.Type().String())
-	}
 	if rv.IsNil() {
 		return errors.New("non-optional enum value is nil")
 	}
-	rv = rv.Elem()
-	ev, ok := enumVariants[rv.Type()]
+
+	ev, ok := enumGetIdxByType(rv.Type(), rv.Elem().Type())
+	rvReal := rv.Elem()
 	if !ok {
-		return errors.New("enum variants not defined for type: " + rv.Type().String())
+		ev, ok = enumVariants[rvReal.Type()]
+		if !ok {
+			return errors.New("enum " + rv.Type().String() + " does not have variant of type " + rvReal.Type().String())
+		}
 	}
 	if _, err = writeVarUint(e.w, ev); err != nil {
 		return
 	}
-	if err = e.encode(rv, nil, 0); err != nil {
+	if err = e.encode(rvReal, nil, 0); err != nil {
 		return err
 	}
 	return nil
